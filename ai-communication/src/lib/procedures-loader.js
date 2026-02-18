@@ -128,8 +128,10 @@ function detectIntents(message, context = {}) {
   // Check bridges.js action detections first (most reliable)
   if (context.documentAction === 'generate') intents.add('draft');
   if (context.emailAction === 'compose') intents.add('email');
+  if (context.emailAction === 'process-notices') { intents.add('email'); intents.add('calendar'); intents.add('triage'); }
   if (context.deadlineAction) intents.add('calendar');
   if (context.courtLookupAction) intents.add('filing');
+  if (context.fileSearchAction) intents.add('file_mgmt');
   if (context.zoomAction) intents.add('calendar');
 
   // Keyword pattern matching on the message

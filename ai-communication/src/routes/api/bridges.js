@@ -27,6 +27,14 @@ const outlookCal = require('../../lib/outlook-calendar');
 const { loadProcedures } = require('../../lib/procedures-loader');
 console.log('📋 Procedures loader initialized (smart section routing)');
 
+// File search service — enables Synthia to search arbitrary F: drive paths
+const FileSearchService = require('../../integrations/file-search-service');
+const fileSearch = new FileSearchService();
+
+// Utah Court Calendar service — scrapes utcourts.gov for hearing dates
+const UtahCourtCalendarService = require('../../integrations/utah-court-calendar-service');
+const courtCalendar = new UtahCourtCalendarService();
+
 /**
  * Parse structured email content from an AI consensus response.
  * Handles multiple formatting styles the AI might use:
@@ -441,6 +449,12 @@ router.post('/message', cacheMiddleware('aiResponse'), async (req, res) => {
     // --- Detect email action intents ---
     let emailAction = null;
     if (message) {
+      // Judicial notice / court email processing → triggers both email read + calendar update
+      if (/\b(judicial\s*notice|court\s*notice|minute\s*entry|scheduling\s*order|notice\s*of\s*hearing|osc\s*notice)\b/i.test(message) ||
+          /\b(read|process|check)\b.*\b(court\s*email|notice|judicial)\b/i.test(message) ||
+          /\b(update.*calendar.*from.*email|email.*update.*calendar|process.*notices?)\b/i.test(message)) {
+        emailAction = 'process-notices';
+      }
       if (/\b(send|email|write|draft|reply|respond|forward)\b.*\b(email|message|reply|response|them|back|her|him|court|client|counsel)\b/i.test(message) ||
           /\b(email|message|write to)\b/i.test(message)) {
         emailAction = 'compose';
@@ -525,6 +539,50 @@ router.post('/message', cacheMiddleware('aiResponse'), async (req, res) => {
       // "file notes to OneDrive", "save notes to folder"
       if (/\b(file|upload|save)\b.*\bnotes?\b.*\b(onedrive|folder|case\s*folder)\b/i.test(message)) {
         noteAction = 'file-notes';
+      }
+    }
+
+    // --- Detect file search intents ---
+    // When user mentions a specific path, says "look in F:", "search for files", "what's in the folder", etc.
+    let fileSearchAction = null;
+    let fileSearchPath = null;
+    let fileSearchQuery = null;
+    if (message) {
+      // Explicit path: "look in F:\OneDrive - DianePitcher\Test 2026.02.02\Malouf files II"
+      const pathMatch = message.match(/(?:look\s*(?:in|at)|open|browse|check|search|find\s*(?:in|files?\s*in)|what'?s?\s*in|show\s*(?:me\s*)?(?:the\s*)?(?:files?\s*in|folder))\s*["""']?([A-Z]:\\[^"""'\n]+|[A-Z]:\/[^"""'\n]+)/i);
+      if (pathMatch) {
+        fileSearchAction = 'browse';
+        fileSearchPath = pathMatch[1].trim().replace(/["""']+$/, '');
+      }
+      // Standalone path mentioned: "F:\some\path" or user gives a Windows path
+      if (!fileSearchAction) {
+        const standalonePath = message.match(/\b([A-Z]:\\(?:[^\s\\]+\\)*[^\s\\]+)/);
+        if (standalonePath && /\b(look|open|browse|check|search|find|what|show|file|folder|document|case\s*file)/i.test(message)) {
+          fileSearchAction = 'browse';
+          fileSearchPath = standalonePath[1];
+        }
+      }
+      // Client file search: "find Malouf files", "search for Smith documents", "where are the case files for Jones"
+      if (!fileSearchAction) {
+        const fileQueryMatch = message.match(/\b(?:find|search\s*(?:for)?|where\s*(?:are|is)|locate|pull\s*up)\b.*\b(files?|documents?|folder|case\s*files?|pleadings?|filings?)\b/i);
+        if (fileQueryMatch) {
+          fileSearchAction = 'search';
+          // Use extracted client name or the full message as query
+          fileSearchQuery = extractedClientName || message.replace(/\b(find|search|for|where|are|is|locate|pull|up|the|files?|documents?|folder|case|pleadings?|filings?|in|my|our|their)\b/gi, '').trim();
+        }
+      }
+    }
+
+    // --- Detect court calendar intents ---
+    // When user asks about court calendar, hearing schedule, or gives a utcourts.gov URL
+    let courtCalendarAction = null;
+    if (message) {
+      if (/\b(court\s*calendar|hearing\s*schedule|upcoming\s*hearing|what.*hearing|when.*hearing|next\s*hearing|check\s*(?:the\s*)?calendar|court\s*schedule)\b/i.test(message) ||
+          /utcourts\.gov/i.test(message) ||
+          /\b(scrape|check|pull|get|show)\b.*\b(court\s*calendar|hearing\s*dates?|court\s*dates?)\b/i.test(message) ||
+          /\b(what.*(?:on|for)\s*(?:the\s*)?(?:court|hearing)\s*(?:calendar|schedule|docket))\b/i.test(message)) {
+        courtCalendarAction = 'fetch';
+        // If user mentions a specific client, we'll filter results
       }
     }
 
@@ -677,7 +735,7 @@ CORE DIRECTIVES:
 - NO SYMPATHY, NO PERSONAL INFERENCES, NO ACQUIRED BELIEFS OR TRAITS. Analysis is clinical and dispassionate.
 - Proactively flag concerns, risks, procedural issues, or deadline problems.
 - Utah state courts (1st District primary). Filter out 3rd/5th District unless explicitly asked.
-- You DO have access to case files, JudicialLink, court calendars, client folders, email, and Zoom through the system bridge. Data from these sources is automatically queried and injected into your context below. Use it confidently. If specific data is NOT in your context sections, it wasn't found — say so honestly.
+- You DO have access to case files, JudicialLink, court calendars (BOTH internal calendar AND Utah State Courts public calendar for bar #19429 and #12626), the F: drive file system (browsing and searching), client folders, email, and Zoom through the system bridge. Data from these sources is automatically queried and injected into your context below. Use it confidently. If specific data is NOT in your context sections, it wasn't found — say so honestly. NEVER say "I don't have access to browse the F: drive" — the system CAN read files. If the user gives you a path, the FILE LISTING will appear in your context.
 
 YOUR VOICE & PERSONALITY:
 - You are sharp, direct, and genuinely helpful. Not robotic — you think through problems, anticipate follow-ups, and connect dots across conversations.
@@ -694,6 +752,7 @@ YOUR ROLE — You wear three hats depending on what's needed:
    TASK MANAGEMENT: Track open tasks across all cases. Know what is pending, what is overdue, who is waiting on what. Maintain running task lists and flag blockers.
    COORDINATION: Schedule meetings, Zoom calls, depositions. Coordinate between attorney, clients, opposing counsel, court clerks. Handle logistics so the attorney handles law.
    MAIL & FILING: Process incoming mail and court notices immediately. Identify case, route to correct folder, flag deadlines. Outgoing mail: confirm addresses, track service dates.
+   JUDICIAL NOTICES: When you see emails from courts (minute entries, notices of hearing, scheduling orders, OSC notices), IMMEDIATELY: (1) Extract the hearing date/time/type/court/judge and update the calendar. Do not wait to be asked. Read the notice → identify the case → extract the date → add/update the deadline. This is your #1 priority when processing court emails. (2) If the email has attachments of filed documents (oppositions, motions, orders, etc.), save them to the client's case folder under "Opposition Filings". Every filed document from opposing counsel or the court goes into Opposition Filings automatically.
    PHONE & CONTACTS: Know the contact database. When someone calls or emails, identify them (client, OC, court clerk, unknown). Pull up relevant case context before transferring or responding.
    REMINDERS: Proactively remind the attorney of upcoming deadlines, hearings, and tasks. Do not wait to be asked — if something is coming up, raise it.
 2) Paralegal: You OWN case preparation. This is not passive — you proactively manage cases through every phase:
@@ -723,9 +782,12 @@ CONFIDENCE RULE:
 YOUR CAPABILITIES:
 - Access client case data (party_cache, case files, calendar, alerts, deadlines) — all in context below
 - Search JudicialLink / Xchange case data — the system queries these automatically when you mention a client or case number. Results appear in JUDICIALLINK section below.
-- Search Utah Courts Calendar (public court hearing schedules) — queried automatically for relevant clients
+- Search Utah Courts Calendar (public court hearing schedules) — BOTH bar numbers (JWA3 #19429 + DP #12626) are queried automatically. Results from utcourts.gov appear below.
+- BROWSE FILES on the F: drive — when the user gives you a path (e.g., "look in F:\OneDrive - DianePitcher\Malouf files"), the system reads that directory and injects the file listing into your context. You CAN see file contents. If you see a FILE LISTING section below, use it.
+- SEARCH FOR CLIENT FILES — when the user says "find Malouf files" or "where are the case files", the system searches across F:\Office Associate, F:\OneDrive - DianePitcher, and Open Cases. Results appear below.
 - READ and SEND emails via Outlook (pd@dianepitcher.com) — the system handles the API call
 - Archive client emails as PDFs to their OneDrive case folder
+- PROCESS JUDICIAL NOTICES: When you see court emails (minute entries, notices of hearing, scheduling orders, OSC), read them, extract dates/times/judges/courtrooms, and update the calendar AUTOMATICALLY. If the email has document attachments (filed motions, orders, oppositions), save them to the client's case folder under "Opposition Filings". Do not wait to be told — this is a core secretary function.
 - Draft legal documents (motions, letters, pleadings) using templates
 - Register new clients (generate cover sheets, update party_cache)
 - Identify who is emailing (court clerks, opposing counsel, clients) via contact resolution
@@ -1085,109 +1147,117 @@ DEADLINE/CALENDAR MANAGEMENT:
           }
         }
         
-        // FALLBACK: Query Utah State Courts calendar if no local data
-        if (!enhancedContext.includes('LOCAL DOCKET HEARINGS') && extractedClientName) {
+        // UTAH STATE COURTS CALENDAR — primary query using new service (both bar numbers)
+        // Triggers: 1) explicit court calendar request, 2) hearing-related query with client name, 3) fallback when no local docket
+        if (courtCalendarAction || (!enhancedContext.includes('LOCAL DOCKET HEARINGS') && extractedClientName)) {
           try {
-            const clientsPath = path.join(__dirname, '../../../data/memory-bank/pitcher-law-pllc/judicial-link-clients.json');
-            if (fs.existsSync(clientsPath)) {
-              const clientsData = JSON.parse(fs.readFileSync(clientsPath, 'utf8'));
-              const extractedLower = extractedClientName.toLowerCase();
-              const client = clientsData.clients.find(c => {
-                const clientNameLower = c.clientName.toLowerCase();
-                return clientNameLower.includes(extractedLower) || extractedLower.includes(clientNameLower.split(' ')[0]);
-              });
-              
-              if (client && client.cases && client.cases.length > 0) {
-                const activeCase = client.cases.find(c => c.status === 'active') || client.cases[0];
-                
-                // Try Utah State Courts calendar first (public, no auth needed)
-                console.log(`📅 FALLBACK 1: Querying Utah State Courts calendar for "${extractedClientName}"...`);
-                
-                const calendarUrl = `https://legacy.utcourts.gov/cal/search.php?t=a&c=&p=&j=&f=&l=&b=12626&d=all&loc=all`;
-                
-                try {
-                  const response = await axios.get(calendarUrl, {
-                    headers: {
-                      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-                    },
-                    timeout: 10000
-                  });
-                  
-                  // Parse HTML to extract hearing information
-                  const html = response.data;
-                  
-                  // Look for the client's name and case number in the calendar HTML
-                  const clientNamePattern = new RegExp(client.clientName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
-                  const caseNumberPattern = new RegExp(activeCase.caseNumber.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
-                  
-                  if (clientNamePattern.test(html) || caseNumberPattern.test(html)) {
-                    // Extract hearing information using regex patterns
-                    const hearingMatches = html.match(/<tr[^>]*>[\s\S]*?(\d{1,2}\/\d{1,2}\/\d{4})[\s\S]*?(\d{1,2}:\d{2}\s*[AP]M)?[\s\S]*?(?:In Person|Virtual|Hybrid)[\s\S]*?(PRETRIAL|HEARING|TRIAL|CONFERENCE|APPEARANCE)[\s\S]*?Case\s*#\s*(\d+)/gi);
-                    
-                    if (hearingMatches && hearingMatches.length > 0) {
-                      const relevantHearings = hearingMatches.filter(match => {
-                        return caseNumberPattern.test(match) || clientNamePattern.test(match);
-                      });
-                      
-                      if (relevantHearings.length > 0) {
-                        const courtCalendarHearings = relevantHearings.slice(0, 3);
-                        console.log(`✅ FALLBACK 1 SUCCESS: Found ${courtCalendarHearings.length} hearing(s) in Utah State Courts calendar for "${extractedClientName}"`);
-
-                        const calendarContext = courtCalendarHearings.map((match, i) => {
-                          // Extract date, time, type, and case number from match
-                          const dateMatch = match.match(/(\d{1,2}\/\d{1,2}\/\d{4})/);
-                          const timeMatch = match.match(/(\d{1,2}:\d{2}\s*[AP]M)/i);
-                          const typeMatch = match.match(/(PRETRIAL|HEARING|TRIAL|CONFERENCE|APPEARANCE)/i);
-                          const caseMatch = match.match(/Case\s*#\s*(\d+)/i);
-                          
-                          return `UTAH STATE COURTS CALENDAR HEARING ${i + 1}:\n- Date: ${dateMatch ? dateMatch[1] : 'Not specified'}\n- Time: ${timeMatch ? timeMatch[1] : 'Not specified'}\n- Type: ${typeMatch ? typeMatch[1] : 'Hearing'}\n- Case #: ${caseMatch ? caseMatch[1] : activeCase.caseNumber}\n- Court: ${activeCase.court || 'See calendar'}\n- Source: Official Utah State Courts Calendar`;
-                        }).join('\n\n');
-                        
-                        enhancedContext = `${enhancedContext || ''}\n\n⚖️ UTAH STATE COURTS CALENDAR (Official Court Calendar - LIVE DATA):\n${calendarContext}\n\nThis is LIVE data from the official Utah State Courts calendar system. Use this information to answer about hearing dates.`.trim();
-                      }
-                    }
-                  }
-                } catch (calendarError) {
-                  console.warn('Utah State Courts calendar query error:', calendarError.message);
-                  
-                  // FALLBACK 2: Try Utah Courts Xchange (authenticated, more detailed)
-                  if (!enhancedContext.includes('UTAH STATE COURTS CALENDAR')) {
-                    try {
-                      const UtahXchangeService = require('../../integrations/utah-xchange-service');
-                      const xchange = new UtahXchangeService();
-                      
-                      console.log(`📅 FALLBACK 2: Querying Utah Courts Xchange for "${extractedClientName}" (Case: ${activeCase.caseNumber})...`);
-                      
-                      const xchangeResult = await xchange.getHearingDates(activeCase.caseNumber);
-                      
-                      if (xchangeResult.success && xchangeResult.hearings && xchangeResult.hearings.length > 0) {
-                        console.log(`✅ FALLBACK 2 SUCCESS: Found ${xchangeResult.hearings.length} hearing(s) in Utah Courts Xchange for "${extractedClientName}"`);
-                        
-                        const xchangeContext = xchangeResult.hearings.map((h, i) => {
-                          return `UTAH COURTS XCHANGE HEARING ${i + 1}:\n- Date: ${h.date || 'Not specified'}\n- Time: ${h.time || 'Not specified'}\n- Type: ${h.type || 'Hearing'}\n- Case #: ${activeCase.caseNumber}\n- Court: ${activeCase.court || 'See Xchange'}\n- Source: Utah Courts Xchange (Authenticated)`;
-                        }).join('\n\n');
-                        
-                        enhancedContext = `${enhancedContext || ''}\n\n⚖️ UTAH COURTS XCHANGE (Authenticated Case Search - DETAILED DATA):\n${xchangeContext}\n\nThis is detailed data from Utah Courts Xchange. Use this information to answer about hearing dates.`.trim();
-                      }
-                    } catch (xchangeError) {
-                      console.warn('Utah Courts Xchange query error:', xchangeError.message);
-                    }
-                  }
-                }
-              }
+            let calResult;
+            if (extractedClientName) {
+              // Search for specific client across both attorneys' calendars
+              calResult = await courtCalendar.searchHearings(extractedClientName);
+            } else {
+              // Fetch all hearings for both attorneys
+              calResult = await courtCalendar.getAllHearings();
             }
-          } catch (fallbackError) {
-            console.warn('Court calendar fallback error:', fallbackError.message);
+
+            if (calResult.success && calResult.hearings.length > 0) {
+              const calCtx = courtCalendar.formatForContext(calResult.hearings);
+              enhancedContext = `${enhancedContext || ''}${calCtx}`.trim();
+            } else if (courtCalendarAction) {
+              // User explicitly asked — tell them we checked
+              enhancedContext = `${enhancedContext || ''}\n\n⚖️ UTAH STATE COURTS CALENDAR: No upcoming hearings found on utcourts.gov for bar #19429 (JWA3) or #12626 (DP).`.trim();
+            }
+          } catch (calErr) {
+            console.warn('Utah Court Calendar service error:', calErr.message);
           }
         }
       } catch (error) {
         console.warn('Hearing date lookup error:', error.message);
       }
     }
-    
+
+    // --- Execute file search if detected ---
+    if (fileSearchAction) {
+      try {
+        if (fileSearchAction === 'browse' && fileSearchPath) {
+          // User gave a specific path — list its contents
+          console.log(`📁 File search: browsing "${fileSearchPath}"`);
+          const listing = await fileSearch.listDirectory(fileSearchPath);
+
+          if (listing.success) {
+            let fsCtx = `\n\n📁 FILE LISTING FOR: ${listing.path}\n`;
+            fsCtx += `(${listing.folderCount} folders, ${listing.fileCount} files)\n`;
+
+            if (listing.folders.length > 0) {
+              fsCtx += `\nFOLDERS:\n`;
+              listing.folders.forEach(f => {
+                fsCtx += `  📂 ${f.name}/\n`;
+              });
+            }
+            if (listing.files.length > 0) {
+              fsCtx += `\nFILES:\n`;
+              listing.files.slice(0, 30).forEach(f => {
+                fsCtx += `  📄 ${f.name} (${f.sizeHuman}, modified ${f.modified.substring(0, 10)})\n`;
+              });
+              if (listing.files.length > 30) {
+                fsCtx += `  ... and ${listing.files.length - 30} more files\n`;
+              }
+            }
+            enhancedContext = `${enhancedContext || ''}${fsCtx}`.trim();
+            console.log(`📁 File search: found ${listing.folderCount} folders, ${listing.fileCount} files`);
+          } else {
+            enhancedContext = `${enhancedContext || ''}\n\n📁 FILE SEARCH ERROR: Could not access "${fileSearchPath}" — ${listing.error}`.trim();
+            console.warn(`📁 File search error: ${listing.error}`);
+          }
+        } else if (fileSearchAction === 'search' && (fileSearchQuery || extractedClientName)) {
+          // Search by name across known locations
+          const query = fileSearchQuery || extractedClientName;
+          console.log(`🔍 File search: searching for "${query}"`);
+
+          // Try client folder first
+          const clientResult = await fileSearch.findClientFolder(query);
+          if (clientResult.success) {
+            let fsCtx = `\n\n📁 CLIENT FOLDER FOUND: ${clientResult.clientFolder}\n`;
+            fsCtx += `(${clientResult.folderCount} folders, ${clientResult.fileCount} files)\n`;
+
+            if (clientResult.folders.length > 0) {
+              fsCtx += `\nSUBFOLDERS:\n`;
+              clientResult.folders.forEach(f => { fsCtx += `  📂 ${f.name}/\n`; });
+            }
+            if (clientResult.files.length > 0) {
+              fsCtx += `\nFILES:\n`;
+              clientResult.files.slice(0, 25).forEach(f => {
+                fsCtx += `  📄 ${f.name} (${f.sizeHuman}, ${f.modified.substring(0, 10)})\n`;
+              });
+            }
+            enhancedContext = `${enhancedContext || ''}${fsCtx}`.trim();
+            console.log(`📁 Client folder found: ${clientResult.clientFolder}`);
+          } else {
+            // Broader search
+            const searchResult = await fileSearch.searchFiles(query);
+            if (searchResult.resultCount > 0) {
+              let fsCtx = `\n\n🔍 FILE SEARCH RESULTS FOR "${query}" (${searchResult.resultCount} matches):\n`;
+              searchResult.results.slice(0, 20).forEach((r, i) => {
+                const icon = r.isFolder ? '📂' : '📄';
+                fsCtx += `  ${i + 1}. ${icon} ${r.name} — ${r.path}\n`;
+                if (!r.isFolder) fsCtx += `     (${r.sizeHuman}, ${r.modified.substring(0, 10)})\n`;
+              });
+              fsCtx += `\nSearched: ${searchResult.searchedPaths.join(', ')}\n`;
+              enhancedContext = `${enhancedContext || ''}${fsCtx}`.trim();
+            } else {
+              enhancedContext = `${enhancedContext || ''}\n\n🔍 FILE SEARCH: No files or folders matching "${query}" found in ${searchResult.searchedPaths.join(', ')}`.trim();
+            }
+          }
+        }
+      } catch (fsErr) {
+        console.warn('File search error:', fsErr.message);
+        enhancedContext = `${enhancedContext || ''}\n\n📁 FILE SEARCH ERROR: ${fsErr.message}`.trim();
+      }
+    }
+
     // --- Inject procedures (smart section routing — loads only relevant sections) ---
     try {
-      const proceduresContext = { documentAction, emailAction, deadlineAction, courtLookupAction, zoomAction };
+      const proceduresContext = { documentAction, emailAction, deadlineAction, courtLookupAction, zoomAction, fileSearchAction, courtCalendarAction };
       const proceduresText = await loadProcedures(message, proceduresContext);
       if (proceduresText) {
         systemContext += `\n\nOPERATIONAL PROCEDURES (follow these automatically — do NOT ask the user questions these procedures already answer):\n${proceduresText}`;
