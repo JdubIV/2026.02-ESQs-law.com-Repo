@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+/* UTAH COURT DOCUMENT REQUIREMENTS - EXACT COMPLIANCE */
+
+/* CRITICAL: All margins EXACTLY 1.00 inch (NOT 1.50 default) */
+@page {
+  margin: 1.00in 1.00in 1.00in 1.00in;
+  size: 8.5in 11in;
+}
+
+body {
+  font-family: 'Times New Roman', serif;
+  font-size: 12pt;
+  margin: 0;
+  padding: 0;
+}
+
+/* Attorney Header - Single-spaced, standard paragraphs (NOT table) */
+.attorney-header {
+  line-height: 1.0; /* Single-spaced */
+  margin-bottom: 12pt;
+}
+
+/* Caption Table - 2 columns, 2 rows, Row 1 MERGED, Outside borders ONLY */
+.caption-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 12pt 0;
+  /* CRITICAL: Outside borders only, NO inside lines */
+  border: 1px solid black;
+}
+
+.caption-table td {
+  padding: 6pt;
+  font-size: 12pt;
+  font-family: 'Times New Roman', serif;
+  /* NO inside borders */
+  border: none;
+}
+
+/* Row 1: Merged cell, centered */
+.caption-header {
+  text-align: center;
+  border-bottom: 1px solid black; /* Only bottom border to separate rows */
+}
+
+/* Row 2: Parties and Case Info side by side */
+.parties-cell {
+  width: 50%;
+  vertical-align: top;
+  text-align: left;
+  padding-left: 0; /* NO indentation - flush left */
+}
+
+.case-info-cell {
+  width: 50%;
+  vertical-align: top;
+  text-align: left;
+  border-left: none; /* CRITICAL: No vertical line between cells */
+}
+
+/* Body paragraphs - Double-spaced, 0.5" first-line indent */
+.body-paragraph {
+  line-height: 2.0; /* Double-spaced */
+  text-indent: 0.5in; /* CRITICAL: 0.5" first-line indent */
+  margin-bottom: 12pt;
+  text-align: justify;
+}
+
+/* Signature table - 3 columns, invisible */
+.signature-table {
+  width: 100%;
+  border: none;
+  margin-top: 24pt;
+}
+
+.signature-table td {
+  border: none;
+  padding: 6pt;
+}
+
+/* Certificate of Service - Centered, underlined heading */
+.certificate-heading {
+  text-align: center;
+  text-decoration: underline;
+  font-weight: normal;
+  margin: 24pt 0 12pt 0;
+}
+
+/* Service table - All visible borders */
+.service-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 12pt 0;
+  border: 1px solid black;
+}
+
+.service-table td {
+  border: 1px solid black;
+  padding: 6pt;
+}
+</style>
+</head>
+<body>
+
+<!-- PART 1: ATTORNEY HEADER (Single-spaced paragraphs, NOT table) -->
+<div class="attorney-header">
+{{ATTORNEY_HEADER}}
+</div>
+
+<!-- PART 2: CAPTION TABLE (2x2, Row 1 merged, outside borders only) -->
+<table class="caption-table">
+  <!-- ROW 1: MERGED HORIZONTALLY - Centered court name -->
+  <tr>
+    <td colspan="2" class="caption-header">
+      IN THE FIRST JUDICIAL DISTRICT COURT IN AND FOR {{COUNTY}} COUNTY, STATE OF UTAH
+    </td>
+  </tr>
+  
+  <!-- ROW 2: PARTIES | CASE INFO (NO vertical line between) -->
+  <tr>
+    <!-- LEFT CELL: Parties (flush left, NO indent) -->
+    <td class="parties-cell">
+      {{PLAINTIFF}},<br><br>
+      <strong>PLAINTIFF,</strong><br><br>
+      vs.<br><br>
+      {{DEFENDANT}},<br><br>
+      <strong>DEFENDANT.</strong>
+    </td>
+    
+    <!-- RIGHT CELL: Case Info -->
+    <td class="case-info-cell">
+      <strong>NOTICE OF APPEARANCE</strong><br><br>
+      Case No. {{CASE_NO}}<br><br>
+      Judge: {{JUDGE}}
+    </td>
+  </tr>
+</table>
+
+<!-- PART 3: BODY (Double-spaced, 0.5" first-line indent) -->
+<p class="body-paragraph">
+{{FIRM_NAME}}, by and through undersigned counsel, hereby enters its appearance on behalf of {{CLIENT_ROLE}} {{CLIENT_NAME}} in the above-entitled matter.
+</p>
+
+<p class="body-paragraph">
+All pleadings, notices, and correspondence should be directed to the undersigned at the address listed above.
+</p>
+
+<!-- PART 4: SIGNATURE BLOCK (3-column invisible table) -->
+<p style="margin-top: 24pt;">DATED this {{DAY}} day of {{MONTH}}, {{YEAR}}.</p>
+
+<table class="signature-table">
+  <tr>
+    <td style="width: 40%;">
+      _________________________________<br>
+      {{ATTORNEY1_NAME}}, Esq.<br>
+      Attorney for {{CLIENT_ROLE}}
+    </td>
+    <td style="width: 20%;"></td>
+    <td style="width: 40%;">
+      _________________________________<br>
+      {{ATTORNEY2_NAME}}, Esq.<br>
+      Attorney for {{CLIENT_ROLE}}
+    </td>
+  </tr>
+</table>
+
+<!-- PART 5: CERTIFICATE OF SERVICE -->
+<h3 class="certificate-heading">CERTIFICATE OF SERVICE</h3>
+
+<p class="body-paragraph">
+I hereby certify that on {{SERVICE_DATE}}, I caused a true and correct copy of the foregoing NOTICE OF APPEARANCE to be served upon the following parties by the method(s) indicated below:
+</p>
+
+<!-- Service table with ALL visible borders -->
+<table class="service-table">
+  <tr>
+    <td><strong>RECIPIENT</strong></td>
+    <td><strong>SERVICE METHODS</strong></td>
+  </tr>
+  {{SERVICE_ROWS}}
+</table>
+
+<p style="margin-top: 24pt;">
+_________________________________<br>
+{{ATTORNEY1_NAME}}, Esq.
+</p>
+
+</body>
+</html>

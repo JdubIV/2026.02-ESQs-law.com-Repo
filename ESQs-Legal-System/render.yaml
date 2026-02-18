@@ -1,0 +1,16 @@
+﻿# Render deployment configuration for LAW Matrix v4.0
+# This file tells Render how to build and deploy the application
+
+# Build command (installs dependencies)
+npm install
+
+# Start command (starts the server)
+npm start
+
+# Environment variables needed for deployment
+# Add these in Render dashboard:
+# NODE_ENV=production
+# PORT=10000 (Render will set this automatically)
+
+# Health check endpoint
+# Render will check: /api/lawmatrix/status

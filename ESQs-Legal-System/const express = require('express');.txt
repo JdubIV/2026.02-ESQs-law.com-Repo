@@ -1,0 +1,432 @@
+const express = require('express');
+const mongoose = require('mongoose');
+const cors = require('cors');
+const helmet = require('helmet');
+const compression = require('compression');
+const morgan = require('morgan');
+const rateLimit = require('express-rate-limit');
+const path = require('path');
+const http = require('http');
+const socketIO = require('socket.io');
+
+require('dotenv').config();
+
+const app = express();
+const server = http.createServer(app);
+const io = socketIO(server, {
+  cors: {
+    origin: process.env.CLIENT_URL || "http://localhost:3000",
+    methods: ["GET", "POST"]
+  }
+});
+
+console.log('🚀 Starting ESQs-APP LAW MATRIX Server...');
+
+// System status tracking
+const systemStatus = {
+  server: 'running',
+  database: 'checking',
+  routes: {
+    core: false,
+    services: false
+  }
+};
+
+// Import routes with error handling
+let routesLoaded = {};
+
+try {
+  console.log('📁 Loading core routes...');
+  const authRoutes = require('./routes/auth');
+  const caseRoutes = require('./routes/cases');
+  const clientRoutes = require('./routes/clients');
+  const documentRoutes = require('./routes/documents');
+  const userRoutes = require('./routes/users');
+  
+  // Routes
+  app.use('/api/auth', authRoutes);
+  app.use('/api/cases', caseRoutes);
+  app.use('/api/clients', clientRoutes);
+  app.use('/api/documents', documentRoutes);
+  app.use('/api/users', userRoutes);
+  
+  systemStatus.routes.core = true;
+  console.log('✅ Core routes loaded');
+} catch (error) {
+  console.error('❌ Error loading core routes:', error.message);
+  systemStatus.routes.core = false;
+}
+
+try {
+  console.log('🔧 Loading service routes...');
+  const aiRaidRoutes = require('./routes/ai-raid');
+  const analyticsRoutes = require('./routes/analytics');
+  const googleWorkspaceRoutes = require('./routes/google-workspace');
+  const practicePantherRoutes = require('./routes/practice-panther');
+  const dropboxPPRoutes = require('./routes/dropbox-pp');
+  
+  app.use('/api/ai-raid', aiRaidRoutes);
+  app.use('/api/analytics', analyticsRoutes);
+  app.use('/api/google-workspace', googleWorkspaceRoutes);
+  app.use('/api/practice-panther', practicePantherRoutes);
+  app.use('/api/dropbox-pp', dropboxPPRoutes);
+  
+  systemStatus.routes.services = true;
+  console.log('✅ Service routes loaded');
+} catch (error) {
+  console.error('❌ Error loading service routes:', error.message);
+  console.error('Stack:', error.stack);
+  systemStatus.routes.services = false;
+}
+
+// Middleware
+app.use(helmet());
+app.use(compression());
+app.use(morgan('combined'));
+app.use(cors({
+  origin: process.env.CLIENT_URL || "http://localhost:3000",
+  credentials: true
+}));
+
+// Rate limiting
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100 // limit each IP to 100 requests per windowMs
+});
+app.use('/api/', limiter);
+
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Serve static files
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// Database connection
+console.log('🔗 Attempting MongoDB connection...');
+mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/esqs_app', {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+  serverSelectionTimeoutMS: 5000, // 5 second timeout
+  connectTimeoutMS: 5000,
+})
+.then(() => console.log('✅ Connected to MongoDB'))
+.catch((error) => {
+  console.error('❌ MongoDB connection error:', error.message);
+  console.log('💡 Server will continue without database features');
+});
+
+
+// Serve React app in production
+if (process.env.NODE_ENV === 'production') {
+  app.use(express.static(path.join(__dirname, 'client/build')));
+  
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'client/build', 'index.html'));
+  });
+}
+
+// Health check endpoint
+app.get('/api/health', (req, res) => {
+  res.json({ 
+    status: 'OK', 
+    timestamp: new Date().toISOString(),
+    service: 'ESQs-APP LAW MATRIX',
+    version: process.env.npm_package_version || '1.0.0',
+    routes: systemStatus.routes,
+    database: mongoose.connection.readyState === 1 ? 'Connected' : 'Disconnected'
+  });
+});
+
+// Service status endpoint
+app.get('/api/status', (req, res) => {
+  const serviceStatus = {};
+  
+  // Test AI RAID
+  try {
+    const aiRaid = require('./services/ai-raid');
+    serviceStatus.aiRaid = 'Available';
+  } catch (error) {
+    serviceStatus.aiRaid = `Error: ${error.message}`;
+  }
+  
+  // Test Analytics
+  try {
+    const analytics = require('./services/analytics');
+    serviceStatus.analytics = 'Available';
+  } catch (error) {
+    serviceStatus.analytics = `Error: ${error.message}`;
+  }
+  
+  // Test Google Workspace
+  try {
+    const googleWorkspace = require('./services/google-workspace');
+    serviceStatus.googleWorkspace = 'Available';
+  } catch (error) {
+    serviceStatus.googleWorkspace = `Error: ${error.message}`;
+  }
+  
+  res.json({
+    success: true,
+    timestamp: new Date().toISOString(),
+    services: serviceStatus,
+    server: systemStatus
+  });
+});
+
+// Socket.IO for real-time features
+io.on('connection', (socket) => {
+  console.log('👤 User connected:', socket.id);
+  
+  socket.on('join-case', (caseId) => {
+    socket.join(`case-${caseId}`);
+    console.log(`👤 User ${socket.id} joined case ${caseId}`);
+  });
+  
+  socket.on('case-update', (data) => {
+    socket.to(`case-${data.caseId}`).emit('case-updated', data);
+  });
+  
+  socket.on('disconnect', () => {
+    console.log('👤 User disconnected:', socket.id);
+  });
+});
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({ 
+    message: 'Something went wrong!', 
+    error: process.env.NODE_ENV === 'development' ? err.message : {}
+  });
+});
+
+// 404 handler
+app.use((req, res) => {
+  res.status(404).json({ message: 'Route not found' });
+});
+
+const PORT = process.env.PORT || 5000;
+
+server.listen(PORT, () => {
+  console.log(`🚀 ESQs-APP LAW MATRIX Server running on port ${PORT}`);
+  console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`🔗 API Health Check: http://localhost:${PORT}/api/health`);
+});
+
+module.exports = app;
+const express = require('express');
+const mongoose = require('mongoose');
+const cors = require('cors');
+const helmet = require('helmet');
+const compression = require('compression');
+const morgan = require('morgan');
+const rateLimit = require('express-rate-limit');
+const path = require('path');
+const http = require('http');
+const socketIO = require('socket.io');
+
+require('dotenv').config();
+
+const app = express();
+const server = http.createServer(app);
+const io = socketIO(server, {
+  cors: {
+    origin: process.env.CLIENT_URL || "http://localhost:3000",
+    methods: ["GET", "POST"]
+  }
+});
+
+console.log('🚀 Starting ESQs-APP LAW MATRIX Server...');
+
+// System status tracking
+const systemStatus = {
+  server: 'running',
+  database: 'checking',
+  routes: {
+    core: false,
+    services: false
+  }
+};
+
+// Import routes with error handling
+let routesLoaded = {};
+
+try {
+  console.log('📁 Loading core routes...');
+  const authRoutes = require('./routes/auth');
+  const caseRoutes = require('./routes/cases');
+  const clientRoutes = require('./routes/clients');
+  const documentRoutes = require('./routes/documents');
+  const userRoutes = require('./routes/users');
+  
+  // Routes
+  app.use('/api/auth', authRoutes);
+  app.use('/api/cases', caseRoutes);
+  app.use('/api/clients', clientRoutes);
+  app.use('/api/documents', documentRoutes);
+  app.use('/api/users', userRoutes);
+  
+  systemStatus.routes.core = true;
+  console.log('✅ Core routes loaded');
+} catch (error) {
+  console.error('❌ Error loading core routes:', error.message);
+  systemStatus.routes.core = false;
+}
+
+try {
+  console.log('🔧 Loading service routes...');
+  const aiRaidRoutes = require('./routes/ai-raid');
+  const analyticsRoutes = require('./routes/analytics');
+  const googleWorkspaceRoutes = require('./routes/google-workspace');
+  const practicePantherRoutes = require('./routes/practice-panther');
+  const dropboxPPRoutes = require('./routes/dropbox-pp');
+  
+  app.use('/api/ai-raid', aiRaidRoutes);
+  app.use('/api/analytics', analyticsRoutes);
+  app.use('/api/google-workspace', googleWorkspaceRoutes);
+  app.use('/api/practice-panther', practicePantherRoutes);
+  app.use('/api/dropbox-pp', dropboxPPRoutes);
+  
+  systemStatus.routes.services = true;
+  console.log('✅ Service routes loaded');
+} catch (error) {
+  console.error('❌ Error loading service routes:', error.message);
+  console.error('Stack:', error.stack);
+  systemStatus.routes.services = false;
+}
+
+// Middleware
+app.use(helmet());
+app.use(compression());
+app.use(morgan('combined'));
+app.use(cors({
+  origin: process.env.CLIENT_URL || "http://localhost:3000",
+  credentials: true
+}));
+
+// Rate limiting
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100 // limit each IP to 100 requests per windowMs
+});
+app.use('/api/', limiter);
+
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Serve static files
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// Database connection
+console.log('🔗 Attempting MongoDB connection...');
+mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/esqs_app', {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+  serverSelectionTimeoutMS: 5000, // 5 second timeout
+  connectTimeoutMS: 5000,
+})
+.then(() => console.log('✅ Connected to MongoDB'))
+.catch((error) => {
+  console.error('❌ MongoDB connection error:', error.message);
+  console.log('💡 Server will continue without database features');
+});
+
+
+// Serve React app in production
+if (process.env.NODE_ENV === 'production') {
+  app.use(express.static(path.join(__dirname, 'client/build')));
+  
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'client/build', 'index.html'));
+  });
+}
+
+// Health check endpoint
+app.get('/api/health', (req, res) => {
+  res.json({ 
+    status: 'OK', 
+    timestamp: new Date().toISOString(),
+    service: 'ESQs-APP LAW MATRIX',
+    version: process.env.npm_package_version || '1.0.0',
+    routes: systemStatus.routes,
+    database: mongoose.connection.readyState === 1 ? 'Connected' : 'Disconnected'
+  });
+});
+
+// Service status endpoint
+app.get('/api/status', (req, res) => {
+  const serviceStatus = {};
+  
+  // Test AI RAID
+  try {
+    const aiRaid = require('./services/ai-raid');
+    serviceStatus.aiRaid = 'Available';
+  } catch (error) {
+    serviceStatus.aiRaid = `Error: ${error.message}`;
+  }
+  
+  // Test Analytics
+  try {
+    const analytics = require('./services/analytics');
+    serviceStatus.analytics = 'Available';
+  } catch (error) {
+    serviceStatus.analytics = `Error: ${error.message}`;
+  }
+  
+  // Test Google Workspace
+  try {
+    const googleWorkspace = require('./services/google-workspace');
+    serviceStatus.googleWorkspace = 'Available';
+  } catch (error) {
+    serviceStatus.googleWorkspace = `Error: ${error.message}`;
+  }
+  
+  res.json({
+    success: true,
+    timestamp: new Date().toISOString(),
+    services: serviceStatus,
+    server: systemStatus
+  });
+});
+
+// Socket.IO for real-time features
+io.on('connection', (socket) => {
+  console.log('👤 User connected:', socket.id);
+  
+  socket.on('join-case', (caseId) => {
+    socket.join(`case-${caseId}`);
+    console.log(`👤 User ${socket.id} joined case ${caseId}`);
+  });
+  
+  socket.on('case-update', (data) => {
+    socket.to(`case-${data.caseId}`).emit('case-updated', data);
+  });
+  
+  socket.on('disconnect', () => {
+    console.log('👤 User disconnected:', socket.id);
+  });
+});
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({ 
+    message: 'Something went wrong!', 
+    error: process.env.NODE_ENV === 'development' ? err.message : {}
+  });
+});
+
+// 404 handler
+app.use((req, res) => {
+  res.status(404).json({ message: 'Route not found' });
+});
+
+const PORT = process.env.PORT || 5000;
+
+server.listen(PORT, () => {
+  console.log(`🚀 ESQs-APP LAW MATRIX Server running on port ${PORT}`);
+  console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`🔗 API Health Check: http://localhost:${PORT}/api/health`);
+});
+
+module.exports = app;

@@ -1,0 +1,22 @@
+# Environment variables with API keys
+.env
+
+# Node modules
+node_modules/
+
+# Logs
+*.log
+
+# Client data (contains sensitive information)
+client_data/
+
+# Any backup files
+*.bak
+
+# Windows system files
+desktop.ini
+Thumbs.db
+
+# ESQs specific files
+pp-file-reader.js.bak
+server.js.bak

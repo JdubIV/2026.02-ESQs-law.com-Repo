@@ -1,0 +1,33 @@
+File → Open Folder
+index.html
+@echo off
+echo 🚀 Setting up LAW Matrix v4.0...
+echo.
+
+REM Create project directory on Desktop
+cd /d "%USERPROFILE%\Desktop"
+if not exist "LAW-Matrix" mkdir "LAW-Matrix"
+cd "LAW-Matrix"
+
+echo ✅ Created LAW-Matrix folder on Desktop
+echo.
+echo 📝 Next steps:
+echo 1. Copy your HTML code into a file named "index.html" in this folder
+echo 2. Run this command: python -m http.server 8080
+echo 3. Open browser to: http://localhost:8080
+echo.
+echo 📁 Current location: %CD%
+echo.
+pause
+
+REM Optionally start server if index.html exists
+if exist "index.html" (
+    echo 🌐 Starting LAW Matrix server...
+    echo Open your browser to: http://localhost:8080
+    echo Press Ctrl+C to stop the server
+    echo.
+    python -m http.server 8080
+) else (
+    echo ⚠️  Please create index.html file first, then run:
+    echo python -m http.server 8080
+)

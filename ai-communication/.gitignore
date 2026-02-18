@@ -1,0 +1,89 @@
+# ═══════════════════════════════════════════════════════════════
+# ESQs Law - .gitignore (cleaned up 2026-02-16)
+# Active app: server.js, backend/, src/, public/, config/,
+#             scripts/, LegalTemplates/, data/, fonts/, docs/
+# Everything else lives in archive/
+# ═══════════════════════════════════════════════════════════════
+
+# ── Archive (all legacy content) ──
+archive/directories/
+
+# ── Environment & Secrets ──
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.cert
+config/google-credentials.json
+**/google-credentials.json
+**/*-credentials.json
+
+# ── Node ──
+node_modules/
+
+# ── Build & Output ──
+build/
+output/
+Generated_Documents/
+tmp/
+uploads/
+*.log
+*.tmp
+*.db
+*.db-journal
+
+# ── Binary files ──
+*.docx
+*.xlsx
+*.pdf
+*.exe
+*.docm
+*.png
+!LegalTemplates/**/*.docx
+!src/templates/legal/**/*.docx
+!public/favicon.png
+!public/images/**
+
+# ── Flutter/Dart ──
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+.metadata
+*.iml
+
+# ── IDE ──
+.idea/
+.vs/
+.vscode/settings.json
+.cursor/
+*.swp
+*.swo
+*~
+*.suo
+*.user
+
+# ── Windows system ──
+desktop.ini
+Thumbs.db
+DumpStack.log.tmp
+~$*
+
+# ── Cache ──
+.embed-cache/
+__pycache__/
+*.pyc
+
+# ── Wrangler ──
+.wrangler/
+
+# ── OAuth tokens (local only) ──
+data/google-oauth.json
+data/google-oauth*.json
+data/sessions/.sync-state.json
+
+# ── Debug scripts ──
+scripts/debug-*.js

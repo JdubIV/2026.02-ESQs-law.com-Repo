@@ -1,0 +1,228 @@
+{
+  "templateId": "notice-of-appearance-utah",
+  "templateName": "Notice of Appearance",
+  "jurisdiction": "Utah",
+  "court": "First Judicial District Court",
+  "version": "1.0",
+  "lastUpdated": "2026-01-09",
+  
+  "formatting": {
+    "margins": {
+      "top": "1.00in",
+      "bottom": "1.00in",
+      "left": "1.00in",
+      "right": "1.00in",
+      "critical": "Top margin MUST be 1.00in (not default 1.50in)"
+    },
+    "font": {
+      "family": "Times New Roman",
+      "size": "12pt"
+    },
+    "lineSpacing": {
+      "body": "double (2.0)",
+      "headers": "single (1.0)",
+      "tables": "single (1.0)"
+    },
+    "paragraphIndent": {
+      "firstLine": "0.5in"
+    }
+  },
+  
+  "sections": {
+    "1_attorney_header": {
+      "order": 1,
+      "spacing": "single",
+      "format": "standard paragraphs (not table)",
+      "content": [
+        "{{attorney1Name}}, Esq. (USB #{{attorney1Bar}})",
+        "{{attorney2Name}}, Esq. (USB #{{attorney2Bar}})",
+        "Firm: {{firmName}}",
+        "Address: {{firmAddress}}",
+        "Contact: Telephone {{firmPhone}}; Facsimile {{firmFax}}; Email {{firmEmail}}",
+        "Role: Attorneys for {{clientRole}}"
+      ],
+      "defaults": {
+        "attorney1Name": "Diane Pitcher",
+        "attorney1Bar": "12626",
+        "attorney2Name": "John W. Adams III",
+        "attorney2Bar": "19429",
+        "firmName": "Pitcher Law PLLC",
+        "firmAddress": "40 W Cache Valley Blvd Ste 3B, Logan, UT 84321",
+        "firmPhone": "(435) 787-1200",
+        "firmFax": "(855) 787-1200",
+        "firmEmail": "pd@dianepitcher.com"
+      }
+    },
+    
+    "2_caption_table": {
+      "order": 2,
+      "type": "table",
+      "rows": 2,
+      "columns": 2,
+      "borders": "outside only (no inside lines)",
+      "row1": {
+        "merged": true,
+        "alignment": "center",
+        "content": "IN THE {{courtName}} IN AND FOR {{county}} COUNTY, STATE OF UTAH",
+        "defaults": {
+          "courtName": "FIRST JUDICIAL DISTRICT COURT",
+          "county": "CACHE"
+        }
+      },
+      "row2": {
+        "leftCell": {
+          "alignment": "left",
+          "noIndent": true,
+          "content": [
+            "{{plaintiffName}},",
+            "",
+            "PLAINTIFF,",
+            "",
+            "vs.",
+            "",
+            "{{defendantName}},",
+            "",
+            "DEFENDANT."
+          ],
+          "critical": "PLAINTIFF, and DEFENDANT. MUST be ALL CAPS"
+        },
+        "rightCell": {
+          "alignment": "left",
+          "content": [
+            "{{documentTitle}}",
+            "",
+            "Case No. {{caseNumber}}",
+            "",
+            "Judge: {{judgeName}}"
+          ],
+          "defaults": {
+            "documentTitle": "NOTICE OF APPEARANCE"
+          }
+        }
+      }
+    },
+    
+    "3_body": {
+      "order": 3,
+      "spacing": "double",
+      "firstLineIndent": "0.5in",
+      "content": [
+        {
+          "paragraph": 1,
+          "text": "{{firmName}}, by and through undersigned counsel, hereby enters its appearance on behalf of {{clientRole}} {{clientName}} in the above-entitled matter."
+        },
+        {
+          "paragraph": 2,
+          "text": "All pleadings, notices, and correspondence should be directed to the undersigned at the address listed above."
+        }
+      ]
+    },
+    
+    "4_signature_block": {
+      "order": 4,
+      "type": "table",
+      "rows": 3,
+      "columns": 3,
+      "borders": "none (invisible)",
+      "spacing": "single",
+      "content": [
+        {
+          "row": 1,
+          "col1": "DATED this {{day}} day of {{month}}, {{year}}.",
+          "col2": "",
+          "col3": ""
+        },
+        {
+          "row": 2,
+          "col1": "",
+          "col2": "",
+          "col3": ""
+        },
+        {
+          "row": 3,
+          "col1": [
+            "_________________________________",
+            "{{attorney1Name}}, Esq.",
+            "Attorney for {{clientRole}}"
+          ],
+          "col2": "",
+          "col3": [
+            "_________________________________",
+            "{{attorney2Name}}, Esq.",
+            "Attorney for {{clientRole}}"
+          ]
+        }
+      ]
+    },
+    
+    "5_certificate_of_service": {
+      "order": 5,
+      "title": {
+        "text": "CERTIFICATE OF SERVICE",
+        "alignment": "center",
+        "underline": true
+      },
+      "body": {
+        "firstLineIndent": "0.5in",
+        "spacing": "double",
+        "text": "I hereby certify that on {{serviceDate}}, I caused a true and correct copy of the foregoing NOTICE OF APPEARANCE to be served upon the following parties by the method(s) indicated below:"
+      },
+      "serviceTable": {
+        "type": "table",
+        "rows": 5,
+        "columns": 2,
+        "borders": "all visible",
+        "leftColumn": "Recipients",
+        "rightColumn": "Service Methods",
+        "entries": [
+          {
+            "recipient": "{{recipient1Name}}",
+            "address": "{{recipient1Address}}",
+            "methods": [
+              "[X] E-File",
+              "[ ] U.S. Mail",
+              "[ ] Hand Delivery",
+              "[ ] Email"
+            ]
+          }
+        ]
+      },
+      "signatureLine": {
+        "spacing": "double",
+        "text": [
+          "",
+          "_________________________________",
+          "{{attorneyName}}, Esq."
+        ]
+      }
+    }
+  },
+  
+  "validation_rules": {
+    "critical_checks": [
+      "Top margin = 1.00in (not 1.50in)",
+      "Caption table Row 1 must be merged",
+      "Caption table has outside borders only",
+      "PLAINTIFF, and DEFENDANT. in ALL CAPS",
+      "Body paragraphs first-line indent 0.5in",
+      "Certificate of Service centered and underlined"
+    ]
+  },
+  
+  "required_fields": [
+    "caseNumber",
+    "plaintiffName",
+    "defendantName",
+    "judgeName",
+    "clientRole",
+    "clientName"
+  ],
+  
+  "optional_fields": [
+    "county",
+    "courtName",
+    "recipient1Name",
+    "recipient1Address",
+    "serviceDate"
+  ]
+}

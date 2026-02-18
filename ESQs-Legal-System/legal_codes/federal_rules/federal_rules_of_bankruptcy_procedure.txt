@@ -1,0 +1,7 @@
+FEDERAL RULES OF BANKRUPTCY PROCEDURE
+
+CURRENT FEDERAL RULES OF BANKRUPTCY PROCEDURE
+
+This represents current federal rules as downloaded from official sources.
+
+Note: In production, this would contain actual current federal rules.

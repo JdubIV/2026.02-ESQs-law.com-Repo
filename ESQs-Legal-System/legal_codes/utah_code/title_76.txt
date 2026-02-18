@@ -1,0 +1,7 @@
+UTAH CODE TITLE 76 - Utah Criminal Code
+
+CURRENT UTAH CODE TITLE 76
+
+This represents current statutory law as downloaded from official sources.
+
+Note: In production, this would contain the actual current statutory text from le.utah.gov

@@ -1,0 +1,1368 @@
+﻿================================================================================
+LAW MATRIX - COMPLETE REFERENCE DOCUMENT
+Version: 4.0 Consolidated
+Last Updated: 2026-02-14
+For: Pitcher Law PLLC / ESQs Law RAG System
+================================================================================
+
+TABLE OF CONTENTS
+-----------------
+1. FIRM INFORMATION
+2. GENERAL FORMATTING RULES
+3. UTAH RULES OF CIVIL PROCEDURE (URCP) REFERENCES
+4. DOCUMENT TYPES
+   4.1  Notice of Appearance
+   4.2  Motions (Generic, Compel Discovery, Summary Judgment, Dismiss)
+   4.3  Pleadings (Complaint, Answer)
+   4.4  Discovery (Interrogatories, Requests for Production, Objections & Responses)
+   4.5  Declarations
+   4.6  Orders
+   4.7  Petitions
+   4.8  Demand Letters (Personal Injury, Contract Breach)
+   4.9  Settlement Agreements
+   4.10 Attorney Engagement Letters
+   4.11 Facesheets (General, Family Law, Criminal, Civil)
+   4.12 Case Summaries
+   4.13 Certificate of Service
+5. COURT-SPECIFIC FORMATTING
+6. EVAL / QUALITY RULES
+7. ACRONYMS AND ABBREVIATIONS
+
+================================================================================
+SECTION 1: FIRM INFORMATION
+================================================================================
+
+FIRM NAME: Pitcher Law PLLC
+FIRM ADDRESS (PRIMARY): 40 W Cache Valley Blvd Ste 3B, Logan, UT 84321
+FIRM ADDRESS (ALT): 135 North Main Street, Suite 208, Logan, Utah 84321
+TELEPHONE: (435) 787-1200 / (435) 752-3241
+FACSIMILE: (855) 787-1200
+EMAIL: pd@dianepitcher.com
+PARALEGAL EMAIL: paralegal@dianepitcher.com
+GENERAL EMAIL: esqslaw@gmail.com
+
+PERSONNEL:
+----------
+
+1. Diane Pitcher, J.D.
+   - Title: Attorney
+   - Utah State Bar #12626
+   - Aliases: DP
+   - Role: Primary Attorney / Firm Owner
+   - Billing Rate: (see firm schedule)
+
+2. John William Adams III, Esq.
+   - Title: Attorney
+   - Utah State Bar #19429
+   - Aliases: JWA3, JA, JWA, John, Mr. Adams, Sir
+   - Role: Primary Attorney
+   - Billing Rate: $390/hour
+
+3. Travis R. Christiansen
+   - Title: Firm Owner and Managing Partner (Boyack Christiansen Legal Solutions)
+   - Utah State Bar #8504
+   - Aliases: TRC, Travis, TC, T, Mr. Christiansen
+   - Role: Managing Partner
+   - Billing Rate: $450/hour
+
+4. Josephine Miller
+   - Title: Lead Legal Assistant
+   - Aliases: JM, Jo, Ms. Miller
+   - Role: Legal Assistant
+   - Billing Rate: $0 (non-billable)
+
+5. Jordan Gubler
+   - Title: Legal Assistant
+   - Aliases: JG, Jordan, Mrs. Gubler
+   - Role: Legal Assistant
+   - Billing Rate: $0 (non-billable)
+
+6. Emily Wilson
+   - Title: Legal Assistant
+   - Aliases: EW, Emily
+   - Role: Legal Assistant
+   - Billing Rate: $0 (non-billable)
+
+7. Jessica Byergo
+   - Title: Customer Service
+   - Aliases: Jessica, Jess, JB, Ms. Byergo
+   - Role: Client/Customer Specialist
+   - Billing Rate: $0 (non-billable)
+
+================================================================================
+SECTION 2: GENERAL FORMATTING RULES
+================================================================================
+
+All Utah court filings MUST comply with these formatting rules unless court-specific
+rules override them.
+
+PAGE SETUP:
+-----------
+- Paper Size: Letter (8.5 x 11 inches)
+- Top Margin: 1.00 inch (CRITICAL: NOT the Word default of 1.50 inch)
+- Bottom Margin: 1.00 inch
+- Left Margin: 1.00 inch
+- Right Margin: 1.00 inch
+
+FONT:
+-----
+- Family: Times New Roman
+- Size: 12pt
+- Use throughout entire document (no mixed fonts)
+
+LINE SPACING:
+-------------
+- Body text / paragraphs: Double-spaced (2.0)
+- Attorney header block: Single-spaced (1.0)
+- Table content: Single-spaced (1.0)
+- Certificate of Service body: Double-spaced (2.0)
+
+PARAGRAPH FORMATTING:
+---------------------
+- First-line indent: 0.5 inch for body paragraphs
+- Alignment: Left-justified for body text
+- Center alignment: Document titles, Certificate of Service heading
+
+PARAGRAPH NUMBERING:
+--------------------
+- Sequential numbering (1, 2, 3...) for regular paragraphs ONLY
+- Do NOT number: headers, sub-headers, or list items within numbered paragraphs
+- If a numbered paragraph contains a list (a), (b), (c), those list items do NOT
+  get separate paragraph numbers
+- Sub-paragraphs use decimal notation: 1.1, 1.2, 2.1, 2.2, etc.
+
+ATTORNEY HEADER FORMAT (URCP 10(a)(3)):
+----------------------------------------
+Single-spaced, placed at top of first page as standard paragraphs (NOT in a table).
+
+  Diane Pitcher, Esq. USB #12626
+  John W. Adams III, Esq. USB #19429
+  Pitcher Law PLLC
+  40 W Cache Valley Blvd Ste 3B
+  Logan, UT 84321
+  Telephone: (435) 787-1200
+  Facsimile: (855) 787-1200
+  Email: pd@dianepitcher.com
+  Attorneys for [Plaintiff / Defendant / Petitioner / Respondent]
+
+Alternate header (for some filings):
+
+  John William Adams III, Esq. #19429
+  Diane Pitcher, JD #12626
+  PITCHER LAW PLLC
+  135 North Main Street, Suite 208
+  Logan, Utah 84321
+  Telephone: (435) 752-3241
+  Email: paralegal@dianepitcher.com
+  Attorney for [Respondent/Petitioner/Plaintiff/Defendant]
+
+CASE CAPTION:
+-------------
+- Must be in TABLE format
+- 2 columns, 2 rows (NOT 3 columns)
+- Right column cells merged into one cell spanning both rows
+- Top-left cell: Court name (centered, single-spaced)
+- Bottom-left cell: Party names (left-aligned, single-spaced)
+- Right cell (merged): Document title, case number, judge name
+- Borders: Outside borders only (2.25pt), inside vertical border, no horizontal
+  inside borders
+- Court name appears ONCE only (in top-left cell, never duplicated in right cell)
+- PLAINTIFF and DEFENDANT labels in ALL CAPS
+
+Caption content format:
+  Top-left cell (centered):
+    IN THE [ORDINAL] JUDICIAL DISTRICT COURT
+    IN AND FOR [COUNTY] COUNTY, STATE OF UTAH
+
+  Bottom-left cell (left-aligned):
+    [PLAINTIFF/PETITIONER NAME],
+              Plaintiff/Petitioner,
+
+    v.
+
+    [DEFENDANT/RESPONDENT NAME],
+              Defendant/Respondent.
+
+  Right cell (merged, left-aligned):
+    [DOCUMENT TITLE]
+
+    Case No.: [CASE NUMBER]
+    Judge: [JUDGE NAME]
+
+DOCUMENT TITLE FORMATTING:
+--------------------------
+- ALL CAPS for document titles in the caption
+- Bold is optional depending on court preference
+- Centered when standalone (outside caption table)
+
+WARNING BOX (for motions only, NOT for responses):
+--------------------------------------------------
+Position: Top right corner of first page
+Format: Bordered box with bold text
+Text:
+  This motion requires you to respond.
+  Failure to respond within 14 days may result
+  in the Court granting this motion without
+  further notice.
+
+PROPOSED ORDERS (Utah e-filing format):
+---------------------------------------
+- Electronic signature notation at top: Signed electronically pursuant to
+  Utah R. Civ. P. 5(e).
+- At bottom: APPROVED AS TO FORM: with attorney signature line
+- No judge signature line at end (judges sign electronically at front via
+  e-filing system)
+
+SPECIAL CONSIDERATIONS:
+-----------------------
+- Incarcerated client: Filings under attorney authority per URCP Rule 11
+- NO phantom law, cases, or facts: Every legal citation must be verifiable
+- Request clarification for unclear information before proceeding
+
+================================================================================
+SECTION 3: UTAH RULES OF CIVIL PROCEDURE (URCP) REFERENCES
+================================================================================
+
+Key rules referenced in document preparation:
+
+- URCP Rule 5(e): Electronic filing and service
+- URCP Rule 10(a)(3): Format requirements for pleadings (attorney header)
+- URCP Rule 11: Signing of pleadings, motions, and other papers; representations
+  to court; sanctions
+- URCP Rule 12(b): Defenses and objections (motions to dismiss)
+  - 12(b)(1): Lack of subject matter jurisdiction
+  - 12(b)(2): Lack of personal jurisdiction
+  - 12(b)(3): Improper venue
+  - 12(b)(4): Insufficient process
+  - 12(b)(5): Insufficient service of process
+  - 12(b)(6): Failure to state a claim upon which relief can be granted
+  - 12(b)(7): Failure to join a party under Rule 19
+- URCP Rule 26: Duty to disclose; general provisions governing discovery
+- URCP Rule 33: Interrogatories to parties
+- URCP Rule 34: Production of documents and things
+- URCP Rule 36: Requests for admission
+- URCP Rule 37: Failure to make disclosure or cooperate in discovery; sanctions
+- URCP Rule 56: Summary judgment
+
+================================================================================
+SECTION 4: DOCUMENT TYPES
+================================================================================
+
+--------------------------------------------------------------------------------
+4.1 NOTICE OF APPEARANCE
+--------------------------------------------------------------------------------
+
+Document Type: Notice of Appearance
+Format: Utah Court Standard
+Court: First Judicial District, Cache County (default)
+Expected Result: 1-page document with 3 tables total
+
+STRUCTURE:
+1. Attorney Header (paragraphs, single-spaced)
+2. Caption Table (2 columns, right merged, borders)
+3. Body Text (double-spaced, 0.5 inch first-line indent)
+4. Date Line
+5. Signature Table (3 columns, no borders, middle column empty)
+6. Certificate of Service with Service Table (2 columns, borders)
+
+REQUIRED FIELDS:
+- caseNumber
+- plaintiffName
+- defendantName
+- judgeName
+- clientRole (Plaintiff/Defendant/Petitioner/Respondent)
+- clientName
+
+BODY TEXT (Paragraph 1):
+Diane Pitcher (#12626), and John W Adams III (#19429) of the firm Pitcher Law
+PLLC, hereby enter their notices of appearance on behalf of the [Plaintiff /
+Defendant], [Party Name], in the above captioned case. [If Defendant add: To the
+extent necessary, the Defendant enters a plea of not guilty and hereby gives
+notice of his demand for a jury and speedy trial.]
+
+BODY TEXT (Paragraph 2):
+Please direct all future correspondence to the above address.
+
+SIGNATURE TABLE LAYOUT:
+- 3 columns x 3 rows, NO visible borders
+- Column 1: Diane Pitcher signature and info
+- Column 2: EMPTY (spacer)
+- Column 3: John W. Adams III signature and info
+- Row 1: /s/ signatures
+- Row 2: Printed names
+- Row 3: Attorneys for [Party]
+
+Each signature appears ONCE only. Middle column stays empty in all rows.
+
+DATE LINE FORMAT:
+DATED this [___] day of [________], [____].
+
+VALIDATION RULES:
+- Top margin = 1.00 inch (not 1.50 inch)
+- Caption table = 2 columns (not 3)
+- Signature table = 3 columns (not 8)
+- Service table = 2 columns (not 3)
+- Total tables in document = EXACTLY 3
+- Document fits on 1 page
+- No duplicate text in table cells
+- Court header appears in ONE cell only
+
+DEFAULT VALUES:
+- Court: FIRST JUDICIAL DISTRICT COURT
+- County: CACHE
+- Attorney 1: Diane Pitcher, USB #12626
+- Attorney 2: John W. Adams III, USB #19429
+- Firm: Pitcher Law PLLC
+- Address: 40 W Cache Valley Blvd Ste 3B, Logan, UT 84321
+- Phone: (435) 787-1200
+- Fax: (855) 787-1200
+- Email: pd@dianepitcher.com
+
+--------------------------------------------------------------------------------
+4.2 MOTIONS
+--------------------------------------------------------------------------------
+
+--- 4.2.1 GENERIC MOTION TEMPLATE ---
+
+CAPTION:
+IN THE FIFTH JUDICIAL DISTRICT COURT
+IN AND FOR WASHINGTON COUNTY, STATE OF UTAH
+
+[PETITIONER NAME],           |  Case No: [CASE NUMBER]
+                Petitioner,  |
+                             |  Judge: [JUDGE NAME]
+vs.                          |
+                             |
+[RESPONDENT NAME],           |
+                Respondent.  |
+
+MOTION [FOR SPECIFIC RELIEF]
+
+TO THE HONORABLE COURT:
+
+COMES NOW [PETITIONER/RESPONDENT], by and through counsel, and hereby
+respectfully moves this Court as follows:
+
+1. PROCEDURAL BACKGROUND
+   1.1 This matter is properly before the Court.
+   1.2 This Motion is timely filed pursuant to the Utah Rules of Civil Procedure.
+   1.3 [Additional procedural facts as necessary].
+
+2. FACTUAL BACKGROUND
+   2.1 [First factual allegation with specific dates and details].
+   2.2 [Second factual allegation with supporting circumstances].
+   2.3 [Continue with numbered factual allegations as necessary].
+
+3. LEGAL ARGUMENT
+   3.1 [Applicable legal standard under Utah law].
+   3.2 [Analysis under relevant Utah Code provisions].
+   3.3 [Application of Utah Rules of Civil Procedure].
+   3.4 [Supporting case law with proper Bluebook citations].
+
+4. CONCLUSION
+   4.1 Based upon the foregoing, [PETITIONER/RESPONDENT] respectfully requests
+       this Court grant this Motion.
+   4.2 [Specific relief requested].
+
+SIGNATURE BLOCK:
+  DATED this ___ day of _______, [YEAR].
+
+                    [FIRM NAME]
+
+                    _____________________________
+                    JOHN WILLIAM ADAMS III, ESQ.
+                    Utah State Bar No. 19429
+                    Attorney for [PARTY]
+                    Address: [FIRM ADDRESS]
+                    Telephone: [PHONE NUMBER]
+                    Email: [EMAIL ADDRESS]
+
+CERTIFICATE OF SERVICE follows signature block.
+
+
+--- 4.2.2 MOTION TO COMPEL DISCOVERY ---
+
+Document Title: MOTION TO COMPEL DISCOVERY
+Subtitle: Pursuant to Rule 37
+Category: Motions
+
+REQUIRED FIELDS:
+- courtName, courtDistrict, courtState, courtCounty
+- plaintiff, defendant, caseNumber, judgeName
+- movant (Moving Party)
+- respondent (Responding Party)
+- discoveryType (what discovery is at issue)
+- discoveryServed (date discovery was served)
+- responsesDue (date responses were due)
+- deficiencies (array of specific discovery deficiencies)
+- meetConferDetails (meet and confer efforts description)
+
+STRUCTURE:
+MOTION TO COMPEL DISCOVERY RESPONSES
+
+[Movant], by and through undersigned counsel, respectfully moves this Court for
+an Order compelling [Respondent] to fully and completely respond to [Movant]'s
+[Discovery Type], and in support thereof states:
+
+INTRODUCTION
+[Movant] served [Discovery Type] on [Respondent] on [Date Served]. Responses
+were due on [Date Due]. Despite the passage of the deadline and good faith
+efforts to meet and confer, [Respondent] has failed to provide complete and
+adequate responses.
+
+BACKGROUND
+[Case background and relevance of discovery]
+
+ARGUMENT
+I. [RESPONDENT] HAS FAILED TO RESPOND TO DISCOVERY
+[Respondent]'s responses are deficient in the following respects:
+1. [Deficiency 1]
+2. [Deficiency 2]
+
+II. [MOVANT] HAS MET THE MEET AND CONFER REQUIREMENT
+[Meet and confer details]
+
+III. THIS COURT SHOULD COMPEL COMPLETE RESPONSES
+[Legal argument for compelling discovery]
+
+CONCLUSION
+For the foregoing reasons, [Movant] respectfully requests that this Court enter
+an Order:
+1. Compelling [Respondent] to serve full and complete responses within 14 days;
+2. Awarding [Movant] reasonable attorney fees and costs; and
+3. Granting such other and further relief as the Court deems just and proper.
+
+--- 4.2.3 MOTION FOR SUMMARY JUDGMENT ---
+
+Document Title: MOTION FOR SUMMARY JUDGMENT
+Category: Motions
+Rule: URCP Rule 56
+
+REQUIRED FIELDS:
+- courtName, courtDistrict, courtState, courtCounty
+- plaintiff, defendant, caseNumber, judgeName
+- movant (Moving Party), respondent (Opposing Party)
+- claims (array of claims for summary judgment)
+- undisputedFacts (array of undisputed material facts)
+- legalArguments (array of legal arguments, each with heading and argument)
+
+STRUCTURE:
+MOTION FOR SUMMARY JUDGMENT
+
+[Movant], by and through undersigned counsel, respectfully moves this Court for
+summary judgment on the following claims:
+- [Claim 1]
+- [Claim 2]
+
+In support of this Motion, [Movant] states:
+
+INTRODUCTION
+[Introduction explaining why summary judgment is appropriate]
+
+STATEMENT OF UNDISPUTED MATERIAL FACTS
+1. [Fact 1]
+2. [Fact 2]
+
+ARGUMENT
+I. [First Legal Argument Heading]
+[Argument text]
+
+II. [Second Legal Argument Heading]
+[Argument text]
+
+CONCLUSION
+There is no genuine dispute of material fact, and [Movant] is entitled to
+judgment as a matter of law. For the foregoing reasons, [Movant] respectfully
+requests that this Court grant summary judgment in favor of [Movant] on all
+claims.
+
+
+--- 4.2.4 MOTION TO DISMISS ---
+
+Document Title: MOTION TO DISMISS
+Subtitle: Pursuant to Rule 12(b)
+Category: Motions
+
+REQUIRED FIELDS:
+- courtName, courtDistrict, courtState, courtCounty
+- plaintiff, defendant, caseNumber, judgeName
+- movant (Moving Party / Defendant)
+- dismissalGrounds (array; options: 12(b)(1) through 12(b)(7))
+- claims (array of claims to dismiss)
+- arguments (array with heading and argument for each)
+
+GROUNDS OPTIONS:
+- 12(b)(1) - Lack of Subject Matter Jurisdiction
+- 12(b)(2) - Lack of Personal Jurisdiction
+- 12(b)(3) - Improper Venue
+- 12(b)(4) - Insufficient Process
+- 12(b)(5) - Insufficient Service of Process
+- 12(b)(6) - Failure to State a Claim
+- 12(b)(7) - Failure to Join Necessary Party
+
+STRUCTURE:
+MOTION TO DISMISS
+
+[Movant], by and through undersigned counsel, respectfully moves this Court
+pursuant to Rule 12(b) of the Utah Rules of Civil Procedure to dismiss
+[Plaintiff]'s Complaint, and in support thereof states:
+
+INTRODUCTION
+[Plaintiff]'s Complaint fails to state a claim upon which relief can be granted
+and should be dismissed with prejudice.
+
+ARGUMENT
+I. [First Argument Heading]
+[Argument text]
+
+II. [Second Argument Heading]
+[Argument text]
+
+CONCLUSION
+For the foregoing reasons, [Movant] respectfully requests that this Court grant
+this Motion and dismiss [Plaintiff]'s Complaint with prejudice.
+
+--------------------------------------------------------------------------------
+4.3 PLEADINGS
+--------------------------------------------------------------------------------
+
+--- 4.3.1 COMPLAINT ---
+
+Document Title: COMPLAINT
+Category: Pleadings
+
+REQUIRED FIELDS:
+- courtName, courtDistrict, courtState, courtCounty
+- plaintiff, defendant, caseNumber (default: To be assigned), judgeName
+- plaintiffAddress, defendantAddress
+- jurisdiction (jurisdictional basis)
+- venue (venue basis)
+- parties (parties description)
+- facts (array of factual allegations)
+- claims (array of claims for relief, each with name and elements)
+- damages (damages description)
+- relief (array of prayer for relief items)
+
+STRUCTURE:
+COMPLAINT
+
+Plaintiff [Plaintiff], by and through undersigned counsel, files this Complaint
+against Defendant [Defendant], and alleges:
+
+JURISDICTION AND VENUE
+1. [Jurisdictional basis]
+2. [Venue basis]
+
+PARTIES
+3. [Parties description]
+
+FACTUAL ALLEGATIONS
+4. [Fact 1]
+5. [Fact 2]
+
+CLAIMS FOR RELIEF
+
+COUNT I: [Claim Name]
+[Claim elements]
+
+COUNT II: [Claim Name]
+[Claim elements]
+
+DAMAGES
+[Damages description]
+
+PRAYER FOR RELIEF
+WHEREFORE, Plaintiff [Plaintiff] respectfully requests that this Court enter
+judgment in favor of Plaintiff and against Defendant [Defendant] as follows:
+a. [Relief item 1]
+b. [Relief item 2]
+
+[Jury demand if applicable]
+
+
+--- 4.3.2 ANSWER TO COMPLAINT ---
+
+Document Title: ANSWER TO COMPLAINT
+Category: Pleadings
+
+REQUIRED FIELDS:
+- courtName, courtDistrict, courtState, courtCounty
+- plaintiff, defendant, caseNumber, judgeName
+- responses (array of responses to allegations)
+- affirmativeDefenses (array, each with name and description)
+- counterclaims (optional array, each with name and allegations)
+
+STRUCTURE:
+ANSWER TO COMPLAINT
+
+Defendant [Defendant], by and through undersigned counsel, answers Plaintiff
+[Plaintiff]'s Complaint as follows:
+
+RESPONSES TO ALLEGATIONS
+1. [Response to allegation 1]
+2. [Response to allegation 2]
+
+AFFIRMATIVE DEFENSES
+Defendant asserts the following affirmative defenses:
+
+AFFIRMATIVE DEFENSE NO. 1: [Defense Name]
+[Description]
+
+AFFIRMATIVE DEFENSE NO. 2: [Defense Name]
+[Description]
+
+[COUNTERCLAIMS section if applicable]
+
+PRAYER FOR RELIEF
+WHEREFORE, Defendant [Defendant] respectfully requests that this Court:
+a. Dismiss Plaintiff's Complaint with prejudice;
+b. Enter judgment in favor of Defendant on all claims;
+c. Enter judgment in favor of Defendant on all Counterclaims (if any);
+d. Award Defendant costs and attorney fees; and
+e. Grant such other and further relief as the Court deems just and proper.
+
+--------------------------------------------------------------------------------
+4.4 DISCOVERY
+--------------------------------------------------------------------------------
+
+--- 4.4.1 INTERROGATORIES ---
+
+Document Title: INTERROGATORIES
+Subtitle: First Set (or Second Set, etc.)
+Category: Discovery
+Rule: URCP Rule 33
+
+REQUIRED FIELDS:
+- courtName, courtDistrict, courtState, courtCounty
+- plaintiff, defendant, caseNumber, judgeName
+- propoundingParty, respondingParty
+- setNumber (First, Second, etc.)
+- questions (array of interrogatory questions)
+
+STRUCTURE:
+INTERROGATORIES - [SET NUMBER] SET
+
+[Propounding Party], by and through undersigned counsel, propounds the
+following interrogatories to [Responding Party]:
+
+INSTRUCTIONS AND DEFINITIONS
+These interrogatories are propounded pursuant to Rule 33 of the Utah Rules of
+Civil Procedure. You are required to answer these interrogatories separately
+and fully in writing under oath within thirty (30) days from the date of
+service.
+
+INTERROGATORY NO. 1:
+[Question text]
+
+INTERROGATORY NO. 2:
+[Question text]
+
+
+--- 4.4.2 REQUESTS FOR PRODUCTION ---
+
+Document Title: REQUESTS FOR PRODUCTION OF DOCUMENTS
+Subtitle: First Set (or Second Set, etc.)
+Category: Discovery
+Rule: URCP Rule 34
+
+REQUIRED FIELDS:
+- courtName, courtDistrict, courtState, courtCounty
+- plaintiff, defendant, caseNumber, judgeName
+- requestingParty, producingParty
+- setNumber
+- requests (array of document requests)
+
+STRUCTURE:
+REQUESTS FOR PRODUCTION OF DOCUMENTS - [SET NUMBER] SET
+
+[Requesting Party], by and through undersigned counsel, requests that
+[Producing Party] produce the following documents and things for inspection
+and copying:
+
+INSTRUCTIONS AND DEFINITIONS
+These requests are propounded pursuant to Rule 34 of the Utah Rules of Civil
+Procedure. You are required to respond to these requests within thirty (30)
+days from the date of service.
+
+REQUEST NO. 1:
+[Request text]
+
+REQUEST NO. 2:
+[Request text]
+
+
+--- 4.4.3 OBJECTIONS AND RESPONSES TO DISCOVERY ---
+
+Document Title: OBJECTIONS AND RESPONSES TO DISCOVERY
+Category: Discovery
+
+REQUIRED FIELDS:
+- courtName, courtDistrict, courtState, courtCounty
+- plaintiff, defendant, caseNumber, judgeName
+- respondingParty, requestingParty
+- discoveryType (Interrogatories / Requests for Production / Requests for Admission)
+- responses (array, each with requestNumber, objections, response)
+
+STRUCTURE:
+OBJECTIONS AND RESPONSES TO [DISCOVERY TYPE]
+
+[Responding Party], by and through undersigned counsel, responds to
+[Requesting Party]'s [Discovery Type] as follows:
+
+GENERAL OBJECTIONS
+[Responding Party] objects to [Requesting Party]'s [Discovery Type] to the
+extent they:
+1. Seek information protected by the attorney-client privilege or work product
+   doctrine;
+2. Are overly broad, unduly burdensome, or not reasonably calculated to lead to
+   the discovery of admissible evidence;
+3. Seek information equally available to [Requesting Party];
+4. Are vague, ambiguous, or fail to describe with reasonable particularity the
+   information or documents sought.
+
+SPECIFIC RESPONSES
+
+[Request Number]:
+OBJECTIONS: [Objection text]
+RESPONSE: [Response text]
+
+--------------------------------------------------------------------------------
+4.5 DECLARATIONS
+--------------------------------------------------------------------------------
+
+Document Title: DECLARATION OF [DECLARANT NAME]
+Category: Declarations
+
+CAPTION:
+IN THE [ORDINAL] JUDICIAL DISTRICT COURT
+IN AND FOR [COUNTY] COUNTY, STATE OF UTAH
+
+STRUCTURE:
+DECLARATION OF [DECLARANT NAME]
+
+I, [DECLARANT NAME], declare and state as follows:
+
+1. PERSONAL KNOWLEDGE AND COMPETENCY
+   1.1 I am over the age of eighteen (18) years and am competent to make this
+       Declaration.
+   1.2 I have personal knowledge of the matters set forth herein and am
+       competent to testify to the same.
+   1.3 This Declaration is made based upon my personal knowledge and belief.
+
+2. FACTUAL STATEMENTS
+   2.1 [First factual statement with specific details and dates].
+   2.2 [Second factual statement with supporting circumstances].
+   2.3 [Continue with numbered factual statements as necessary].
+
+3. CONCLUSION
+   3.1 The statements contained herein are true and correct to the best of my
+       knowledge and belief.
+
+I declare under penalty of perjury under the laws of the State of Utah that the
+foregoing is true and correct.
+
+EXECUTED this ___ day of _______, [YEAR].
+
+
+                    _____________________________
+                    [DECLARANT NAME]
+
+
+--------------------------------------------------------------------------------
+4.6 ORDERS
+--------------------------------------------------------------------------------
+
+Document Title: ORDER [TITLE OF ORDER]
+Category: Orders
+
+STRUCTURE:
+ORDER [TITLE OF ORDER]
+
+This matter having come before the Court [on Motion/Stipulation/etc.] of
+[PARTY], and the Court having reviewed the file and being fully informed in
+the premises,
+
+IT IS HEREBY ORDERED, ADJUDGED AND DECREED:
+
+1. [First directive/ruling of the Court].
+2. [Second directive/ruling of the Court].
+3. [Continue with numbered directives as necessary].
+
+DATED this ___ day of _______, [YEAR].
+
+                    _____________________________
+                    [JUDGE NAME]
+                    DISTRICT COURT JUDGE
+
+APPROVED AS TO FORM:
+
+_____________________________        _____________________________
+[ATTORNEY NAME]                       [ATTORNEY NAME]
+Attorney for [PARTY]                  Attorney for [PARTY]
+
+UTAH E-FILING FORMAT FOR PROPOSED ORDERS:
+- Electronic signature notation at top: Signed electronically pursuant to Utah
+  R. Civ. P. 5(e).
+- At bottom: APPROVED AS TO FORM: with attorney signature line
+- No judge signature line at end (judges sign electronically via e-filing)
+
+
+--------------------------------------------------------------------------------
+4.7 PETITIONS
+--------------------------------------------------------------------------------
+
+Document Title: PETITION [FOR SPECIFIC RELIEF]
+Category: Petitions
+
+STRUCTURE:
+PETITION [FOR SPECIFIC RELIEF]
+
+TO THE HONORABLE COURT:
+
+COMES NOW [PETITIONER NAME], and for cause of action against [RESPONDENT NAME],
+alleges as follows:
+
+1. JURISDICTION AND VENUE
+   1.1 This Court has jurisdiction over the subject matter of this action.
+   1.2 Venue is proper in this district pursuant to Utah Code Section [STATUTE].
+   1.3 [Additional jurisdictional allegations as necessary].
+
+2. PARTIES
+   2.1 [Information about Petitioner].
+   2.2 [Information about Respondent].
+   2.3 [Additional party information as necessary].
+
+3. FACTUAL ALLEGATIONS
+   3.1 [First factual allegation with specific details].
+   3.2 [Second factual allegation with supporting circumstances].
+   3.3 [Continue with numbered factual allegations as necessary].
+
+4. CAUSES OF ACTION
+   4.1 [First cause of action with legal basis].
+   4.2 [Second cause of action with legal basis].
+   4.3 [Continue with additional causes of action as necessary].
+
+WHEREFORE, Petitioner prays for judgment against Respondent as follows:
+
+1. [First item of relief requested].
+2. [Second item of relief requested].
+3. For costs and reasonable attorney fees.
+4. For such other and further relief as the Court deems just and proper.
+
+--------------------------------------------------------------------------------
+4.8 DEMAND LETTERS
+--------------------------------------------------------------------------------
+
+--- 4.8.1 PERSONAL INJURY DEMAND LETTER ---
+
+Document Title: DEMAND FOR SETTLEMENT
+Category: Demand Letters
+
+REQUIRED FIELDS:
+- recipientName (Insurance Adjuster Name)
+- company (Insurance Company)
+- claimNumber
+- clientName
+- incidentDate, incidentLocation, incidentDescription
+- injuries (array)
+- medicalTreatment
+- medicalExpenses (dollar amount)
+- lostWages (dollar amount)
+- painSuffering (multiplier for medical expenses)
+- liability (liability arguments)
+- demandAmount (dollar amount)
+- deadline (response deadline)
+
+STRUCTURE:
+[DATE]
+
+[Adjuster Name]
+Claims Adjuster
+[Insurance Company]
+
+RE: Claim No. [Claim Number]
+    Claimant: [Client Name]
+    Date of Loss: [Incident Date]
+    Demand for Settlement
+
+Dear [Adjuster Name]:
+
+This office represents [Client Name] regarding injuries sustained in an incident
+that occurred on [Incident Date] at [Incident Location].
+
+INCIDENT DESCRIPTION
+[Description]
+
+LIABILITY
+[Liability arguments]
+
+INJURIES AND TREATMENT
+As a direct and proximate result of this incident, [Client Name] sustained the
+following injuries:
+- [Injury 1]
+- [Injury 2]
+
+MEDICAL TREATMENT
+[Treatment details]
+
+DAMAGES
+Medical Expenses:           $[Amount]
+Lost Wages:                 $[Amount]
+Pain and Suffering:         $[Amount]
+----------------------------------------
+TOTAL DAMAGES:              $[Total]
+
+SETTLEMENT DEMAND
+Based on the nature and extent of [Client Name]'s injuries, the clear liability
+of your insured, and the significant impact this incident has had on [Client
+Name]'s life, we demand settlement in the amount of $[Demand Amount].
+
+This demand is open for acceptance until [Deadline]. Please respond by that date
+to avoid the necessity of litigation.
+
+Enclosures:
+- Medical Records and Bills
+- Wage Loss Documentation
+- Photographs
+- Police Report
+
+
+--- 4.8.2 CONTRACT BREACH DEMAND LETTER ---
+
+Document Title: DEMAND FOR PAYMENT
+Category: Demand Letters
+
+REQUIRED FIELDS:
+- recipientName, recipientAddress
+- clientName
+- contractDate, contractDescription
+- breachDate, breachDescription
+- contractProvisions (array of breached provisions)
+- damages, damagesAmount
+- demandAmount
+- deadline
+- remedyRequested
+
+STRUCTURE:
+[DATE]
+
+[Recipient Name]
+[Recipient Address]
+
+RE: Breach of Contract - Demand for Payment
+    Contract dated [Contract Date]
+
+Dear [Recipient Name]:
+
+This office represents [Client Name] with regard to your breach of the contract
+entered into on [Contract Date].
+
+CONTRACT BACKGROUND
+[Contract description]
+
+BREACH OF CONTRACT
+On or about [Breach Date], you materially breached the contract by:
+[Breach description]
+
+Specifically, you violated the following provisions of the contract:
+- [Provision 1]
+- [Provision 2]
+
+DAMAGES
+As a direct and proximate result of your breach, [Client Name] has suffered
+damages in the amount of $[Damages Amount], including:
+[Damages details]
+
+DEMAND FOR PAYMENT
+Pursuant to the terms of the contract and applicable law, we demand [Remedy
+Requested] in the total amount of $[Demand Amount].
+
+If we do not receive payment in full or a satisfactory written response by
+[Deadline], we will have no choice but to file suit against you without further
+notice. Such litigation will result in additional costs, including court fees,
+interest, and attorney fees as provided for in the contract.
+
+--------------------------------------------------------------------------------
+4.9 SETTLEMENT AGREEMENTS
+--------------------------------------------------------------------------------
+
+Document Title: SETTLEMENT AGREEMENT AND GENERAL RELEASE
+Category: Transactional
+
+REQUIRED FIELDS:
+- party1Name, party2Name
+- caseDescription
+- settlementAmount
+- paymentTerms
+- releasedClaims
+- confidentiality (boolean)
+- additionalTerms (optional array)
+
+STRUCTURE:
+SETTLEMENT AGREEMENT AND GENERAL RELEASE
+
+This Settlement Agreement and General Release (Agreement) is entered into as
+of [DATE] by and between [Party 1] (Party 1) and [Party 2] (Party 2)
+(collectively, the Parties).
+
+RECITALS
+
+WHEREAS, [Case/dispute description];
+
+WHEREAS, the Parties desire to settle and resolve all disputes between them
+without the expense and uncertainty of litigation;
+
+NOW, THEREFORE, in consideration of the mutual covenants and promises contained
+herein, the Parties agree as follows:
+
+1. SETTLEMENT PAYMENT
+Party 2 shall pay to Party 1 the sum of $[Settlement Amount] (the Settlement
+Amount) according to the following terms:
+[Payment terms]
+
+2. GENERAL RELEASE
+In consideration of the Settlement Amount, Party 1 hereby releases and forever
+discharges Party 2 from any and all claims, demands, actions, or causes of
+action, whether known or unknown, arising from or related to [Released Claims].
+
+3. CONFIDENTIALITY (if applicable)
+The Parties agree that the terms and conditions of this Agreement are
+confidential and shall not be disclosed to any third party except as required by
+law or with the prior written consent of both Parties.
+
+[Additional numbered terms as needed]
+
+[N]. GENERAL PROVISIONS
+a. This Agreement constitutes the entire agreement between the Parties.
+b. This Agreement may only be modified in writing signed by both Parties.
+c. This Agreement shall be governed by the laws of the State of Utah.
+d. Each Party represents that it has had the opportunity to consult with legal
+   counsel.
+
+IN WITNESS WHEREOF, the Parties have executed this Agreement as of the date
+first written above.
+
+________________________          ________________________
+[Party 1 Name]                    [Party 2 Name]
+Date: _____________               Date: _____________
+
+
+--------------------------------------------------------------------------------
+4.10 ATTORNEY ENGAGEMENT LETTERS
+--------------------------------------------------------------------------------
+
+Document Title: ENGAGEMENT LETTER FOR LEGAL REPRESENTATION
+Category: Correspondence
+
+REQUIRED FIELDS:
+- clientName, clientAddress
+- matterDescription
+- scopeOfRepresentation
+- feeStructure (Hourly / Flat Fee / Contingency / Hybrid)
+- hourlyRate (if hourly), flatFee (if flat fee), contingencyPercent (if contingency)
+- retainer (optional)
+- billingTerms
+- expenses
+
+STRUCTURE:
+[DATE]
+
+[Client Name]
+[Client Address]
+
+RE: Engagement Letter for Legal Representation
+    Matter: [Matter Description]
+
+Dear [Client Name]:
+
+Thank you for selecting our firm to represent you. This letter confirms the
+terms of our engagement and outlines our respective responsibilities.
+
+SCOPE OF REPRESENTATION
+We agree to represent you in the following matter:
+[Scope of representation]
+
+FEES AND COSTS
+
+[If Hourly:]
+Our services will be billed at an hourly rate of $[Hourly Rate]. We will bill
+you monthly for time spent on your matter.
+
+[If Flat Fee:]
+We will charge a flat fee of $[Flat Fee] for this matter.
+
+[If Contingency:]
+Our fee will be [Percentage]% of any recovery obtained on your behalf. If we do
+not obtain a recovery, you will not owe any attorney fees.
+
+[If Retainer:]
+You agree to pay a retainer of $[Retainer] which will be held in our trust
+account and applied against fees and costs as they are incurred.
+
+BILLING AND PAYMENT
+[Billing terms]
+
+EXPENSES
+[Expense handling]
+
+CLIENT RESPONSIBILITIES
+You agree to:
+- Provide all information and documents reasonably requested
+- Respond promptly to our communications
+- Keep us informed of any changes in your contact information
+- Review and approve all settlement offers
+
+TERMINATION
+Either party may terminate this representation upon written notice. If you
+terminate our services, you will be responsible for all fees and costs incurred
+up to the date of termination.
+
+ACKNOWLEDGMENT
+Please sign and return one copy of this letter to indicate your acceptance of
+these terms.
+
+ACCEPTED AND AGREED:
+
+________________________
+[Client Name]
+Date: _____________
+
+--------------------------------------------------------------------------------
+4.11 FACESHEETS
+--------------------------------------------------------------------------------
+
+Facesheets are one-page summary documents for quick case reference.
+
+--- 4.11.1 GENERAL FACESHEET ---
+Fields:
+- Client Name
+- Case Number
+- Case Type
+- Status
+- Opposing Party
+- Court
+- Judge
+- Date Opened
+- Last Activity
+
+--- 4.11.2 FAMILY LAW FACESHEET ---
+Keywords: divorce, custody, support, visitation, alimony, marital, property
+Fields:
+- Client Name
+- Case Number
+- Case Type
+- Opposing Party
+- Children
+- Custody Arrangement
+- Support Amount
+- Court
+- Judge
+- Date Opened
+
+--- 4.11.3 CRIMINAL FACESHEET ---
+Keywords: criminal, charge, arrest, bail, hearing, arraignment, plea
+Fields:
+- Client Name
+- Case Number
+- Charges
+- Court
+- Judge
+- Prosecutor
+- Arrest Date
+- Next Hearing
+- Bail Status
+- Attorney
+
+--- 4.11.4 CIVIL FACESHEET ---
+Keywords: civil, lawsuit, plaintiff, defendant, complaint, motion
+Fields:
+- Client Name
+- Case Number
+- Case Type
+- Opposing Party
+- Opposing Counsel
+- Court
+- Judge
+- Filing Date
+- Status
+
+
+--------------------------------------------------------------------------------
+4.12 CASE SUMMARIES
+--------------------------------------------------------------------------------
+
+Case summaries are generated using the following structure:
+
+CASE SUMMARY TEMPLATE:
+Firm: PITCHER LAW PLLC
+Attorney: Diane Pitcher
+
+Required sections:
+1. Client information
+2. Case type and status
+3. Key facts and issues
+4. Important dates and deadlines
+5. Recent activity
+6. Next steps
+
+Rules:
+- Use only provided context. If missing data, state Insufficient data.
+- Numbered paragraphs only. No bullet points.
+- Be direct and concise. Use Utah law citations where applicable.
+
+CASE HISTORY TEMPLATE:
+Required sections:
+1. Case inception and client intake
+2. Filings and procedural events (with dates if available)
+3. Court activity and deadlines
+4. Communications and document milestones
+5. Current status and last known action
+
+Rules:
+- Use only provided context. If missing data, state Insufficient data.
+- Numbered paragraphs only. No bullet points.
+- Use date prefixes when available (YYYY-MM-DD). If unknown, state Date unknown.
+
+
+--------------------------------------------------------------------------------
+4.13 CERTIFICATE OF SERVICE
+--------------------------------------------------------------------------------
+
+The Certificate of Service appears at the end of every filed document.
+
+HEADING:
+CERTIFICATE OF SERVICE
+(centered, underlined, single-spaced)
+
+BODY (double-spaced, 0.5 inch first-line indent):
+I hereby certify that on [DATE], I served a true and correct copy of the
+foregoing [DOCUMENT TITLE] upon the following persons in the manner indicated
+below:
+
+SERVICE TABLE:
+- 2 columns (NOT 3)
+- Left column: Recipient names and addresses
+- Right column: Service method checkboxes
+- Borders: All borders visible (1pt black)
+- Single-spaced within table
+
+Service method options:
+  [ ] U.S. Mail
+  [ ] Hand Delivered
+  [ ] Overnight Mail
+  [ ] Facsimile
+  [X] E-File (most common for Utah courts)
+  [X] Email
+  [ ] By depositing the same in the United States mail, postage prepaid
+  [ ] By electronic filing through the Utah State Courts e-filing system
+  [ ] By email to: [EMAIL ADDRESS]
+
+Default service table rows:
+  Row 1: [Opposing Counsel/Party Name and Address] | [Service methods]
+  Row 2: [Court] | [Service methods]
+  Row 3: Other: _____________ | [Service methods]
+  Row 4: (empty) | /s/ [NAME]
+  Row 5: (empty) | [NAME], [TITLE]
+
+================================================================================
+SECTION 5: COURT-SPECIFIC FORMATTING
+================================================================================
+
+FIRST JUDICIAL DISTRICT COURT (Cache County):
+----------------------------------------------
+- Default court for Pitcher Law PLLC filings
+- Caption: IN THE FIRST JUDICIAL DISTRICT COURT
+- Locality: IN AND FOR CACHE COUNTY, STATE OF UTAH
+- Address: 140 N 100 W, Logan, UT 84321
+
+FIFTH JUDICIAL DISTRICT COURT (Washington County):
+---------------------------------------------------
+- Caption: IN THE FIFTH JUDICIAL DISTRICT COURT
+- Locality: IN AND FOR WASHINGTON COUNTY, STATE OF UTAH
+- Used in some template examples
+
+IMPORTANT: Filter out 3rd and 5th District filings from JudicialLink data and
+timecards unless specifically relevant to Pitcher Law PLLC cases.
+
+GENERAL UTAH COURT FILING REQUIREMENTS:
+- All filings through Utah Courts e-filing system
+- Electronic signatures permitted per URCP Rule 5(e)
+- Caption table format required (not plain-text captions)
+- Service via e-filing is the primary method
+
+
+================================================================================
+SECTION 6: EVAL / QUALITY RULES
+================================================================================
+
+Before delivering ANY document, run the following quality checks:
+
+1. PARTY CHECK (pass/fail):
+   - Do all names and roles match the party_cache?
+   - Is the client name correct and in the right role?
+   - Is the opposing party correctly identified?
+   - HARD RULE: We ALWAYS represent the client_name. NEVER the opposing party.
+
+2. FORMAT CHECK (pass/flag/fail):
+   - Does output follow Law Matrix formatting rules?
+   - Correct numbering scheme (sequential, not bullets)?
+   - Correct font (Times New Roman 12pt)?
+   - Correct margins (1.00 inch all sides)?
+   - Correct line spacing (double for body, single for headers/tables)?
+   - IRAC structure for legal arguments (Issue, Rule, Application, Conclusion)?
+   - Court-specific formatting applied?
+
+3. COMPLETENESS CHECK (pass/flag/fail):
+   - Are all required sections present?
+   - Are all required fields filled?
+   - Is the signature block complete?
+   - Is the Certificate of Service included?
+   - Are all placeholder fields marked with brackets?
+
+4. ACCURACY CHECK (pass/flag/fail):
+   - Does content match local case data?
+   - Are legal citations verifiable?
+   - NO phantom law, cases, or facts
+   - Are dates correct?
+   - Are bar numbers correct?
+
+OVERALL SCORING:
+- All checks pass: Deliver document
+- Any checks flagged: Deliver with disclaimer noting flagged items
+- Any checks fail: Fix before delivering
+
+Log every evaluation to the eval_log table for audit trail.
+
+
+================================================================================
+SECTION 7: ACRONYMS AND ABBREVIATIONS
+================================================================================
+
+CUC   - Current Utah Code
+URCP  - Utah Rules of Civil Procedure
+CP    - Utah Rules of Civil Procedure (alternate abbreviation)
+AOC   - Appearance of Counsel
+MTS   - Motion to Strike
+MTE   - Motion to Enforce
+OSC   - Order to Show Cause
+MTQ   - Motion to Quash
+TRO   - Temporary Restraining Order
+EH    - Evidentiary Hearing
+MSA   - Motion to Set Aside
+MTI   - Motion to Intervene
+IntD  - Initial Disclosures
+RFP   - Request for Production
+NC    - New Client
+CIO   - Close it Out
+Cal   - Calendar
+NOA   - Notice of Appearance
+MSJ   - Motion for Summary Judgment
+MTD   - Motion to Dismiss
+MTC   - Motion to Compel
+COS   - Certificate of Service
+USB   - Utah State Bar
+
+
+================================================================================
+END OF LAW MATRIX COMPLETE REFERENCE DOCUMENT
+================================================================================

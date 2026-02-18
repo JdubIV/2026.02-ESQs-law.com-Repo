@@ -1,0 +1,18 @@
+{
+  "version": "2",
+  "authtoken": "",
+  "tunnels": {
+    "esqs-legal": {
+      "proto": "http",
+      "addr": "8080",
+      "hostname": "",
+      "bind_tls": true,
+      "inspect": false,
+      "auth": "esqs:legal2024"
+    }
+  },
+  "web_addr": "localhost:4041",
+  "log_level": "info",
+  "log_format": "logfmt",
+  "log": "ngrok.log"
+}

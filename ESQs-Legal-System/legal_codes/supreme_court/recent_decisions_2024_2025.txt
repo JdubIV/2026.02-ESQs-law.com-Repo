@@ -1,0 +1,7 @@
+RECENT SUPREME COURT DECISIONS
+
+RECENT SUPREME COURT DECISIONS
+
+This represents current Supreme Court decisions affecting legal practice.
+
+Note: In production, this would contain actual recent SCOTUS decisions.

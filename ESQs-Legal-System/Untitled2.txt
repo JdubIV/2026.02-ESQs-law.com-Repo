@@ -1,0 +1,302 @@
+/**
+ * AI RAID System - Multi-AI Integration and Routing
+ * Routes queries to optimal AI based on task type and combines responses
+ */
+
+let claudeService, geminiService, openaiService, synthesisEngine;
+
+try {
+  claudeService = require('./providers/claude');
+} catch (error) {
+  console.warn('Claude service failed to load, using simplified version:', error.message);
+  claudeService = require('./providers/claude-simple');
+}
+
+try {
+  geminiService = require('./providers/gemini');
+} catch (error) {
+  console.warn('Gemini service failed to load:', error.message);
+  geminiService = { processQuery: () => { throw new Error('GEMINI_UNAVAILABLE'); } };
+}
+
+try {
+  openaiService = require('./providers/openai');
+} catch (error) {
+  console.warn('OpenAI service failed to load:', error.message);
+  openaiService = { processQuery: () => { throw new Error('OPENAI_UNAVAILABLE'); } };
+}
+
+try {
+  synthesisEngine = require('./synthesis-engine');
+} catch (error) {
+  console.warn('Synthesis engine failed to load:', error.message);
+  synthesisEngine = { combineResponses: (primary) => primary };
+}
+
+class AIRaidSystem {
+  constructor() {
+    this.providers = {
+      claude: claudeService,
+      gemini: geminiService,
+      openai: openaiService
+    };
+    this.synthesis = synthesisEngine;
+  }
+  /**
+   * Route query to optimal AI provider based on task type
+   * NEVER generates fake data - returns explicit errors when AI services fail
+   */
+  async routeQuery(query, taskType, context = {}) {
+    const startTime = Date.now();
+    const executionLog = {
+      query: query.substring(0, 100) + '...',
+      taskType,
+      startTime: new Date().toISOString(),
+      attempts: [],
+      errors: []
+    };
+
+    try {
+      const routingDecision = this.determineOptimalProvider(taskType, query);
+      executionLog.routingDecision = routingDecision;
+      
+      // Execute primary query with explicit error handling
+      let primaryResponse = null;
+      let primaryError = null;
+      
+      try {
+        primaryResponse = await this.executeQuery(
+          routingDecision.primary,
+          query,
+          context
+        );
+        executionLog.attempts.push({
+          provider: routingDecision.primary,
+          status: 'success',
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        primaryError = error;
+        executionLog.attempts.push({
+          provider: routingDecision.primary,
+          status: 'failed',
+          error: error.message,
+          timestamp: new Date().toISOString()
+        });
+        executionLog.errors.push(`Primary AI (${routingDecision.primary}) failed: ${error.message}`);
+      }
+
+      // If primary fails, try fallback providers but DO NOT make up data
+      if (!primaryResponse && routingDecision.secondary && routingDecision.secondary.length > 0) {
+        console.warn(`Primary AI provider ${routingDecision.primary} failed, trying fallback providers...`);
+        
+        for (const provider of routingDecision.secondary) {
+          try {
+            primaryResponse = await this.executeQuery(provider, query, context);
+            executionLog.attempts.push({
+              provider: provider,
+              status: 'success_fallback',
+              timestamp: new Date().toISOString()
+            });
+            console.log(`Fallback AI provider ${provider} succeeded`);
+            break; // Success, stop trying other providers
+          } catch (error) {
+            executionLog.attempts.push({
+              provider: provider,
+              status: 'failed_fallback',
+              error: error.message,
+              timestamp: new Date().toISOString()
+            });
+            executionLog.errors.push(`Fallback AI (${provider}) failed: ${error.message}`);
+            console.warn(`Fallback AI provider ${provider} failed:`, error.message);
+          }
+        }
+      }
+
+      // If ALL providers failed, return explicit error - DO NOT generate fake data
+      if (!primaryResponse) {
+        const allErrors = executionLog.errors.join('; ');
+        executionLog.finalStatus = 'all_providers_failed';
+        executionLog.executionTime = Date.now() - startTime;
+        
+        return {
+          success: false,
+          error: 'AI_SERVICE_UNAVAILABLE',
+          message: 'All AI providers are currently unavailable. Please try again later.',
+          details: allErrors,
+          taskType,
+          executionLog,
+          timestamp: new Date().toISOString(),
+          fallbackMessage: 'No AI analysis available at this time. Please contact support if this issue persists.'
+        };
+      }
+
+      // Success case - we have a real AI response
+      executionLog.finalStatus = 'success';
+      executionLog.executionTime = Date.now() - startTime;
+
+      // For secondary synthesis, only proceed if we have a primary response
+      const secondaryResponses = [];
+      if (routingDecision.secondary && routingDecision.secondary.length > 0 && primaryResponse) {
+        for (const provider of routingDecision.secondary) {
+          // Skip provider that was already used as fallback
+          if (executionLog.attempts.some(a => a.provider === provider && a.status.includes('success'))) {
+            continue;
+          }
+          
+          try {
+            const response = await this.executeQuery(provider, query, context);
+            secondaryResponses.push({ provider, response });
+            executionLog.attempts.push({
+              provider: provider,
+              status: 'success_secondary',
+              timestamp: new Date().toISOString()
+            });
+          } catch (error) {
+            executionLog.attempts.push({
+              provider: provider,
+              status: 'failed_secondary',
+              error: error.message,
+              timestamp: new Date().toISOString()
+            });
+            console.warn(`Secondary AI provider ${provider} failed:`, error.message);
+            // Continue - secondary failures are not critical
+          }
+        }
+      }
+
+      // Synthesize responses if we have multiple successful responses
+      if (secondaryResponses.length > 0) {
+        try {
+          const synthesizedResult = await this.synthesis.combineResponses(
+            { provider: routingDecision.primary, response: primaryResponse },
+            secondaryResponses,
+            taskType
+          );
+          
+          return {
+            success: true,
+            ...synthesizedResult,
+            executionLog,
+            timestamp: new Date().toISOString()
+          };
+        } catch (synthesisError) {
+          console.warn('Synthesis failed, returning primary response:', synthesisError.message);
+          // Fall back to primary response if synthesis fails
+        }
+      }
+
+      // Return single AI response
+      return {
+        success: true,
+        provider: routingDecision.primary,
+        response: primaryResponse,
+        taskType,
+        executionLog,
+        timestamp: new Date().toISOString()
+      };
+
+    } catch (error) {
+      executionLog.finalStatus = 'system_error';
+      executionLog.executionTime = Date.now() - startTime;
+      executionLog.systemError = error.message;
+      
+      console.error('AI RAID System error:', error);
+      
+      return {
+        success: false,
+        error: 'SYSTEM_ERROR',
+        message: 'AI RAID system encountered an unexpected error.',
+        details: error.message,
+        taskType,
+        executionLog,
+        timestamp: new Date().toISOString(),
+        fallbackMessage: 'System error occurred. Please contact technical support.'
+      };
+    }
+  }
+
+  /**
+   * Determine optimal AI provider based on task type
+   */
+  determineOptimalProvider(taskType, query) {
+    const routingRules = {
+      'legal-reasoning': {
+        primary: 'claude',
+        secondary: ['openai'],
+        reason: 'Claude excels at complex legal analysis'
+      },
+      'document-generation': {
+        primary: 'openai',
+        secondary: ['claude'],
+        reason: 'OpenAI optimized for document creation'
+      },
+      'google-workspace': {
+        primary: 'gemini',
+        secondary: [],
+        reason: 'Gemini native Google integration'
+      },
+      'case-strategy': {
+        primary: 'claude',
+        secondary: ['openai', 'gemini'],
+        reason: 'Multi-AI synthesis for strategic planning'
+      },
+      'quick-research': {
+        primary: 'gemini',
+        secondary: [],
+        reason: 'Gemini fast processing for rapid queries'
+      },
+      'contract-analysis': {
+        primary: 'claude',
+        secondary: ['openai'],
+        reason: 'Claude superior contract comprehension'
+      },
+      'default': {
+        primary: 'openai',
+        secondary: [],
+        reason: 'OpenAI general purpose fallback'
+      }
+    };
+
+    return routingRules[taskType] || routingRules.default;
+  }
+
+  /**
+   * Execute query with specific AI provider
+   */
+  async executeQuery(provider, query, context) {
+    if (!this.providers[provider]) {
+      throw new Error(`Unknown AI provider: ${provider}`);
+    }
+
+    return await this.providers[provider].processQuery(query, context);
+  }
+
+  /**
+   * Get system status and token usage
+   */
+  async getSystemStatus() {
+    const status = {
+      providers: {},
+      totalTokensUsed: 0,
+      lastUpdated: new Date().toISOString()
+    };
+
+    for (const [name, provider] of Object.entries(this.providers)) {
+      try {
+        const providerStatus = await provider.getStatus();
+        status.providers[name] = providerStatus;
+        status.totalTokensUsed += providerStatus.tokensUsed || 0;
+      } catch (error) {
+        status.providers[name] = { 
+          status: 'error', 
+          error: error.message 
+        };
+      }
+    }
+
+    return status;
+  }
+}
+
+module.exports = new AIRaidSystem();
