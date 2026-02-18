@@ -1,0 +1,51 @@
+{
+	"name": "esqs-backend",
+	"main": "src/index.ts",
+	"compatibility_date": "2024-09-23",
+	"compatibility_flags": [
+		"nodejs_compat"
+	],
+	"routes": [
+		{
+			"pattern": "api.esqs-law.com",
+			"custom_domain": true
+		}
+	],
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "esqs-db",
+			"database_id": "33dfce44-67dc-4df3-a2af-f821590bf80b",
+			"migrations_dir": "migrations"
+		},
+		{
+			"binding": "MEMORY_DB",
+			"database_name": "pitcher-law-memory",
+			"database_id": "a8097089-64ef-4ca0-bacb-e536897dfd8b"
+		}
+	],
+	"r2_buckets": [
+		{
+			"binding": "DOCUMENTS",
+			"bucket_name": "esqs-documents"
+		}
+	],
+	"send_email": [
+		{
+			"name": "OUTBOUND_EMAIL"
+		}
+	],
+	"kv_namespaces": [
+		{
+			"binding": "SESSIONS",
+			"id": "eaae2faf1d454416801304b92eb3cb34"
+		},
+		{
+			"binding": "CACHE",
+			"id": "b99b41eb4b974cb3b7ba9cbcda41e012"
+		}
+	],
+	"vars": {
+		"ENVIRONMENT": "production"
+	}
+}
