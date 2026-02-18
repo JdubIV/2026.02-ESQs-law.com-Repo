@@ -37,27 +37,42 @@ const CACHE_TTL = 10 * 60 * 1000; // 10 minutes
 
 const INTENT_SECTIONS = {
   // Action intents (from bridges.js detection)
-  hearing:     ['s1', 's10'],
-  motion:      ['s2', 's16'],
-  draft:       ['s2', 's3', 's16'],
-  document:    ['s3', 's16'],
-  intake:      ['s4'],
-  discovery:   ['s5', 's12'],
-  filing:      ['s6', 's10'],
-  email:       ['s7', 's13'],
-  billing:     ['s8'],
-  calendar:    ['s1'],
-  file_mgmt:   ['s11'],
-  criminal:    ['s12'],
-  family:      ['s12'],
-  civil:       ['s12'],
-  research:    ['s17'],
-  brief:       ['s16', 's17'],
-  memo:        ['s16'],
-  evidence:    ['s20'],
-  settlement:  ['s19'],
-  injunction:  ['s18'],
-  enforcement: ['s18'],
+  // s_ = procedures, p_ = paralegal, a_ = secretary, t_ = attorney
+  hearing:     ['s1', 's10', 'p3', 'p4', 'a1'],
+  motion:      ['s2', 's16', 't4', 't5'],
+  draft:       ['s2', 's3', 's16', 't4'],
+  document:    ['s3', 's16', 'p5'],
+  intake:      ['s4', 'p6', 'a6'],
+  discovery:   ['s5', 's12', 'p2', 'p4'],
+  filing:      ['s6', 's10', 'p5', 'a5'],
+  email:       ['s7', 's13', 'p8', 'a2'],
+  billing:     ['s8', 'p7'],
+  calendar:    ['s1', 'p4', 'a1'],
+  file_mgmt:   ['s11', 'p5', 'a5'],
+  criminal:    ['s12', 'p9', 't5'],
+  family:      ['s12', 'p10', 't5'],
+  civil:       ['s12', 'p1', 't5'],
+  research:    ['s17', 't1'],
+  brief:       ['s16', 's17', 't4'],
+  memo:        ['s16', 't4'],
+  evidence:    ['s20', 't7'],
+  settlement:  ['s19', 't2'],
+  injunction:  ['s18', 't5'],
+  enforcement: ['s18', 't5'],
+  // Paralegal-specific intents
+  case_status: ['p1', 'p11', 'a3'],
+  case_prep:   ['p1', 'p3', 'p11', 't7'],
+  proactive:   ['p11', 'p4', 'a3'],
+  // Secretary-specific intents
+  phone:       ['a4'],
+  task_mgmt:   ['a3', 'p11'],
+  triage:      ['a2', 'a5'],
+  coordinate:  ['a6', 'a1'],
+  // Attorney-specific intents
+  strategy:    ['t2', 't3'],
+  ethics:      ['t6'],
+  trial:       ['t7', 'p3'],
+  rules:       ['t5'],
 };
 
 // Keyword patterns for fallback detection
@@ -82,6 +97,23 @@ const KEYWORD_PATTERNS = [
   { pattern: /\b(settle|mediat|arbitrat|adr|demand\s*letter)/i,       intent: 'settlement' },
   { pattern: /\b(tro|injunction|restraining\s*order|preliminary)/i,   intent: 'injunction' },
   { pattern: /\b(enforce|garnish|execution|judgment\s*lien|writ\s*of)\b/i, intent: 'enforcement' },
+  // Paralegal-specific patterns
+  { pattern: /\b(case\s*status|where\s*(is|are)\s*(the\s*)?case|lifecycle|what\s*phase)/i, intent: 'case_status' },
+  { pattern: /\b(prep\s*for|prepare\s*for|get\s*ready|ready\s*for|what.*need.*(do|prepare|file))/i, intent: 'case_prep' },
+  { pattern: /\b(what.*due|what.*overdue|anything\s*pending|status\s*update|check\s*on|review\s*cases)/i, intent: 'proactive' },
+  { pattern: /\b(protective\s*order|cohabitant|domestic|modification|parent\s*time|parenting\s*plan)/i, intent: 'family' },
+  { pattern: /\b(arraign|bail|preliminary\s*hear|speedy\s*trial|expung)/i, intent: 'criminal' },
+  { pattern: /\b(conflict\s*check|new\s*matter|open\s*case|set\s*up\s*case|case\s*setup)/i, intent: 'intake' },
+  // Secretary-specific patterns
+  { pattern: /\b(who\s*called|phone|text|sms|voicemail|contact.*look\s*up|phone\s*number)/i, intent: 'phone' },
+  { pattern: /\b(task|to\s*do|action\s*item|assign|follow\s*up|open\s*items|what.*pending)/i, intent: 'task_mgmt' },
+  { pattern: /\b(triage|urgent|prioriti|sort.*email|process.*mail|incoming)/i, intent: 'triage' },
+  { pattern: /\b(zoom|book|reserve|arrange|logistics|coordinate|set\s*up.*meeting)/i, intent: 'coordinate' },
+  // Attorney-specific patterns
+  { pattern: /\b(strateg|evaluate.*case|assess.*risk|chance|likelihood|odds|pros?\s*and\s*cons?|should\s*we)/i, intent: 'strategy' },
+  { pattern: /\b(ethic|conflict\s*of\s*interest|privilege|confidential|malpractice|rpc|professional\s*conduct)/i, intent: 'ethics' },
+  { pattern: /\b(trial|exhibit|witness|testimony|jury|bench\s*trial|voir\s*dire|opening\s*statement)/i, intent: 'trial' },
+  { pattern: /\b(rule\s*\d|urcp|urcrp|urap|ure|utah\s*(code|rule)|local\s*rule)/i, intent: 'rules' },
 ];
 
 /**
