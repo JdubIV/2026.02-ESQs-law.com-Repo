@@ -7,8 +7,8 @@
 	],
 	"routes": [
 		{
-			"pattern": "api.esqs-law.com",
-			"custom_domain": true
+			"pattern": "api.esqs-law.com/*",
+			"zone_name": "esqs-law.com"
 		}
 	],
 	"d1_databases": [
@@ -45,7 +45,20 @@
 			"id": "b99b41eb4b974cb3b7ba9cbcda41e012"
 		}
 	],
+	"ai": {
+		"binding": "AI"
+	},
+	"vectorize": [
+		{
+			"binding": "MEMORY_INDEX",
+			"index_name": "synthia-memory"
+		}
+	],
 	"vars": {
 		"ENVIRONMENT": "production"
+	},
+	// Cron triggers: deep-scan runs every 6 hours (4x/day), cycles through all active cases
+	"triggers": {
+		"crons": ["0 */6 * * *"]
 	}
 }

@@ -196,6 +196,20 @@
             margin-left: 2rem;
         }
 
+        .message-timestamp {
+            display: block;
+            font-size: 0.7rem;
+            color: rgba(226, 232, 240, 0.45);
+            margin-top: 0.5rem;
+            text-align: right;
+            font-style: italic;
+            letter-spacing: 0.3px;
+        }
+
+        .message.user .message-timestamp {
+            color: rgba(212, 175, 55, 0.5);
+        }
+
         .message.system {
             background: rgba(255, 193, 7, 0.1);
             border-left: 4px solid #ffc107;
@@ -1047,6 +1061,14 @@
             const message = document.createElement('div');
             message.className = `message ${type}`;
             message.innerHTML = content;
+            const ts = document.createElement('span');
+            ts.className = 'message-timestamp';
+            const now = new Date();
+            const month = now.toLocaleString('en-US', { month: 'short', timeZone: 'America/Denver' });
+            const day = now.toLocaleString('en-US', { day: 'numeric', timeZone: 'America/Denver' });
+            const time = now.toLocaleString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'America/Denver' });
+            ts.textContent = `${month} ${day}, ${time}`;
+            message.appendChild(ts);
             messages.appendChild(message);
             messages.scrollTop = messages.scrollHeight;
         }
