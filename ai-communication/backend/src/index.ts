@@ -9,8 +9,20 @@ export interface Env {
 	DOCUMENTS: R2Bucket;
 	SESSIONS: KVNamespace;
 	CACHE: KVNamespace;
+	AI: any;
+	MEMORY_INDEX: VectorizeIndex;
 	OPENAI_API_KEY: string;
 	ANTHROPIC_API_KEY: string;
+	XAI_API_KEY: string;
+	GROQ_API_KEY: string;
+	GEMINI_API_KEY: string;
+	GOOGLE_OAUTH_CLIENT_ID: string;
+	GOOGLE_OAUTH_CLIENT_SECRET: string;
+	GOOGLE_REFRESH_TOKEN: string;
+	MICROSOFT_CLIENT_ID: string;
+	MICROSOFT_CLIENT_SECRET: string;
+	MICROSOFT_REFRESH_TOKEN: string;
+	ONEDRIVE_FOLDER_ID: string;
 	AUTH_SECRET: string;
 	ENVIRONMENT: string;
 }
@@ -30,6 +42,77 @@ function json(data: any, status = 200): Response {
 
 function err(message: string, status = 500): Response {
 	return json({ success: false, error: message }, status);
+}
+
+/** Levenshtein distance — used for fuzzy name matching */
+function levenshtein(a: string, b: string): number {
+	const m = a.length, n = b.length;
+	if (m === 0) return n; if (n === 0) return m;
+	const dp: number[][] = Array.from({length: m+1}, () => Array(n+1).fill(0));
+	for (let i = 0; i <= m; i++) dp[i][0] = i;
+	for (let j = 0; j <= n; j++) dp[0][j] = j;
+	for (let i = 1; i <= m; i++)
+		for (let j = 1; j <= n; j++)
+			dp[i][j] = Math.min(dp[i-1][j]+1, dp[i][j-1]+1, dp[i-1][j-1] + (a[i-1]===b[j-1]?0:1));
+	return dp[m][n];
+}
+
+/** Mountain Time helpers — all dates/times should use these instead of raw UTC */
+function mtnNow(): Date {
+	return new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Denver' }));
+}
+
+function mtnToday(): string {
+	return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Denver' }); // YYYY-MM-DD
+}
+
+function mtnISO(): string {
+	const d = new Date();
+	const parts = new Intl.DateTimeFormat('en-US', {
+		timeZone: 'America/Denver',
+		year: 'numeric', month: '2-digit', day: '2-digit',
+		hour: '2-digit', minute: '2-digit', second: '2-digit',
+		hour12: false,
+	}).formatToParts(d);
+	const p: Record<string, string> = {};
+	for (const { type, value } of parts) p[type] = value;
+	return `${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}:${p.second}`;
+}
+
+/** RAG Memory Helpers — embed, search, store */
+async function embedText(ai: any, text: string): Promise<number[]> {
+	if (!ai) throw new Error('AI binding not available');
+	const truncated = text.substring(0, 8000); // BGE model max ~512 tokens, truncate long inputs
+	const result = await ai.run('@cf/baai/bge-base-en-v1.5', { text: [truncated] });
+	if (!result?.data?.[0]) throw new Error('Embedding returned no data');
+	return result.data[0];
+}
+
+async function ragSearch(ai: any, index: VectorizeIndex, query: string, topK = 6, filter?: VectorizeVectorMetadataFilter): Promise<VectorizeMatch[]> {
+	const queryVec = await embedText(ai, query);
+	const results = await index.query(queryVec, { topK, filter, returnMetadata: 'all' });
+	return results.matches || [];
+}
+
+async function ragStore(ai: any, index: VectorizeIndex, db: D1Database, chunk: {
+	id: string; type: string; source: string; content: string;
+	clientName?: string; caseNumber?: string;
+}) {
+	const vec = await embedText(ai, chunk.content);
+	await index.upsert([{
+		id: chunk.id,
+		values: vec,
+		metadata: {
+			chunk_type: chunk.type,
+			source: chunk.source,
+			client_name: chunk.clientName || '',
+			case_number: chunk.caseNumber || '',
+			preview: chunk.content.substring(0, 200),
+		}
+	}]);
+	await db.prepare(
+		`INSERT OR REPLACE INTO memory_chunks (id, chunk_type, source, client_name, case_number, content, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`
+	).bind(chunk.id, chunk.type, chunk.source, chunk.clientName || null, chunk.caseNumber || null, chunk.content, mtnISO()).run();
 }
 
 function hashString(str: string): string {
@@ -60,7 +143,7 @@ export default {
 					status: 'operational',
 					version: '2.0.0-cloudflare',
 					platform: 'Cloudflare Workers + D1 + R2',
-					timestamp: new Date().toISOString()
+					timestamp: mtnISO()
 				});
 			}
 
@@ -71,14 +154,15 @@ export default {
 				const { email, password } = await request.json() as any;
 				if (!password) return err('Password required', 400);
 				
-				const adminPass = env.AUTH_SECRET || 'admin123';
+				const adminPass = env.AUTH_SECRET;
+				if (!adminPass) return err('AUTH_SECRET not configured', 500);
 				if (password !== adminPass) {
 					const user = await env.DB.prepare('SELECT * FROM users WHERE email = ? AND active = 1').bind(email).first();
 					if (!user) return err('Invalid credentials', 401);
 				}
 				
 				const token = crypto.randomUUID();
-				await env.SESSIONS.put(token, JSON.stringify({ email: email || 'admin', loginTime: new Date().toISOString() }), { expirationTtl: 86400 });
+				await env.SESSIONS.put(token, JSON.stringify({ email: email || 'admin', loginTime: mtnISO() }), { expirationTtl: 86400 });
 				return json({ success: true, token, user: { email: email || 'admin' }, redirect: '/' });
 			}
 			
@@ -113,11 +197,11 @@ export default {
 			}
 			
 			if (path === '/api/clients' && request.method === 'POST') {
-				const { name, email, phone, address, city, state, zip, notes } = await request.json() as any;
+				const { name, email = null, phone = null, address = null, city = null, state = null, zip = null, notes = null } = await request.json() as any;
 				if (!name) return err('Client name required', 400);
 				const r = await env.DB.prepare(
-					`INSERT INTO clients (name, email, phone, address, city, state, zip, notes, created_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`
-				).bind(name, email, phone, address, city, state, zip, notes).run();
+					`INSERT INTO clients (name, email, phone, address, city, state, zip, notes, created_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+				).bind(name, email, phone, address, city, state, zip, notes, mtnISO()).run();
 				return json({ success: true, id: r.meta.last_row_id });
 			}
 			
@@ -156,11 +240,11 @@ export default {
 			}
 			
 			if (path === '/api/cases' && request.method === 'POST') {
-				const { client_id, case_number, case_type, state, court, facts, notes } = await request.json() as any;
+				const { client_id, case_number = null, case_type, state, court, facts = null, notes = null } = await request.json() as any;
 				if (!client_id || !case_type || !state || !court) return err('Missing required fields', 400);
 				const r = await env.DB.prepare(
-					`INSERT INTO cases (client_id, case_number, case_type, state, court, facts, notes, created_date) VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))`
-				).bind(client_id, case_number, case_type, state, court, facts, notes).run();
+					`INSERT INTO cases (client_id, case_number, case_type, state, court, facts, notes, created_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+				).bind(client_id, case_number, case_type, state, court, facts, notes, mtnISO()).run();
 				return json({ success: true, id: r.meta.last_row_id });
 			}
 
@@ -183,8 +267,8 @@ export default {
 				const { case_id, title, description, due_date, priority, assigned_to } = await request.json() as any;
 				if (!title) return err('Task title required', 400);
 				const r = await env.DB.prepare(
-					`INSERT INTO tasks (case_id, title, description, due_date, priority, assigned_to, created_date) VALUES (?, ?, ?, ?, ?, ?, datetime('now'))`
-				).bind(case_id, title, description, due_date, priority || 'Medium', assigned_to).run();
+					`INSERT INTO tasks (case_id, title, description, due_date, priority, assigned_to, created_date) VALUES (?, ?, ?, ?, ?, ?, ?)`
+				).bind(case_id, title, description, due_date, priority || 'Medium', assigned_to, mtnISO()).run();
 				return json({ success: true, id: r.meta.last_row_id });
 			}
 			
@@ -209,8 +293,14 @@ export default {
 			if ((path === '/api/calendar' || path === '/api/calendar/events') && request.method === 'GET') {
 				const start = url.searchParams.get('start');
 				const end = url.searchParams.get('end');
-				let q = 'SELECT cal.*, c.case_number FROM calendar cal LEFT JOIN cases c ON cal.case_id = c.id WHERE 1=1';
+				const month = url.searchParams.get('month');
+				let q = 'SELECT cal.*, c.case_number, cl.name as client_name FROM calendar cal LEFT JOIN cases c ON cal.case_id = c.id LEFT JOIN clients cl ON c.client_id = cl.id WHERE 1=1';
 				const p: any[] = [];
+				if (month) {
+					const [y, m] = month.split('-').map(Number);
+					const nextMonth = m === 12 ? `${y+1}-01-01` : `${y}-${String(m+1).padStart(2,'0')}-01`;
+					q += ' AND cal.event_date >= ? AND cal.event_date < ?'; p.push(`${month}-01`, nextMonth);
+				}
 				if (start) { q += ' AND cal.event_date >= ?'; p.push(start); }
 				if (end) { q += ' AND cal.event_date <= ?'; p.push(end); }
 				q += ' ORDER BY cal.event_date ASC';
@@ -234,9 +324,15 @@ export default {
 				const caseId = url.searchParams.get('case_id');
 				const start = url.searchParams.get('start');
 				const end = url.searchParams.get('end');
-				let q = 'SELECT te.*, c.case_number FROM time_entries te LEFT JOIN cases c ON te.case_id = c.id WHERE 1=1';
+				const month = url.searchParams.get('month');
+				let q = 'SELECT te.*, c.case_number, cl.name as client_name FROM time_entries te LEFT JOIN cases c ON te.case_id = c.id LEFT JOIN clients cl ON c.client_id = cl.id WHERE 1=1';
 				const p: any[] = [];
 				if (caseId) { q += ' AND te.case_id = ?'; p.push(caseId); }
+				if (month) {
+					const [y, m] = month.split('-').map(Number);
+					const nextMonth = m === 12 ? `${y+1}-01-01` : `${y}-${String(m+1).padStart(2,'0')}-01`;
+					q += ' AND te.date >= ? AND te.date < ?'; p.push(`${month}-01`, nextMonth);
+				}
 				if (start) { q += ' AND te.date >= ?'; p.push(start); }
 				if (end) { q += ' AND te.date <= ?'; p.push(end); }
 				q += ' ORDER BY te.date DESC';
@@ -251,16 +347,57 @@ export default {
 				if (!case_id || !date || !hours || !description) return err('Missing required fields', 400);
 				const r = await env.DB.prepare(
 					`INSERT INTO time_entries (case_id, date, hours, rate, description) VALUES (?, ?, ?, ?, ?)`
-				).bind(case_id, date, hours, rate || 250, description).run();
+				).bind(case_id, date, hours, rate || 350, description).run();
 				return json({ success: true, id: r.meta.last_row_id });
 			}
 
-			// ═══════════════════════════════════════════════════════════════
-			// SUGGESTIONS (placeholder)
-			// ═══════════════════════════════════════════════════════════════
-			if (path === '/api/suggestions' && request.method === 'GET') {
-				// TODO: Implement AI-powered suggestions based on tasks, calendar, etc.
-				return json({ success: true, suggestions: [] });
+			if (path === '/api/timecard/bulk' && request.method === 'POST') {
+				const { entries, rate: defaultRate } = await request.json() as any;
+				if (!entries || !Array.isArray(entries) || entries.length === 0) return err('entries array required', 400);
+
+				// Build case_number → case_id lookup
+				const { results: allCases } = await env.DB.prepare('SELECT id, case_number FROM cases').all();
+				const caseMap: Record<string, number> = {};
+				for (const c of allCases as any[]) {
+					if (c.case_number) caseMap[c.case_number] = c.id;
+				}
+
+				let inserted = 0, skipped = 0;
+				const errors: string[] = [];
+				const stmts: any[] = [];
+
+				for (const entry of entries) {
+					const { case_number, date, hours, rate, description, category, source } = entry;
+					if (!date || !hours || !description) { skipped++; errors.push(`Missing fields: ${JSON.stringify(entry)}`); continue; }
+
+					const caseId = case_number ? caseMap[case_number] : null;
+					if (!caseId) {
+						skipped++;
+						if (case_number && case_number !== 'OFFICE-HOURS') errors.push(`Case not found: ${case_number}`);
+						continue;
+					}
+
+					// Dedup check: skip if (case_id, date, description) already exists
+					const existing = await env.DB.prepare(
+						'SELECT id FROM time_entries WHERE case_id = ? AND date = ? AND description = ?'
+					).bind(caseId, date, description).first();
+					if (existing) { skipped++; continue; }
+
+					stmts.push(
+						env.DB.prepare('INSERT INTO time_entries (case_id, date, hours, rate, description) VALUES (?, ?, ?, ?, ?)')
+							.bind(caseId, date, hours, rate || defaultRate || 350, description)
+					);
+					inserted++;
+				}
+
+				if (stmts.length > 0) {
+					// D1 batch — max 100 per batch
+					for (let i = 0; i < stmts.length; i += 100) {
+						await env.DB.batch(stmts.slice(i, i + 100));
+					}
+				}
+
+				return json({ success: true, inserted, skipped, errors: errors.slice(0, 20), total: entries.length });
 			}
 
 			// ═══════════════════════════════════════════════════════════════
@@ -276,7 +413,7 @@ export default {
 				// --- STEP 1: Cache check (KV first, then D1) ---
 				// Skip cache for action/command messages (add, delete, update, complete, refresh) and email-related messages
 				const isActionMessage = /\b(add|create|schedule|move|reschedule|change|update|edit|delete|remove|cancel|complete|mark done|refresh calendar|sync calendar)\b/i.test(message) && /\b(hearing|deadline|event|appointment|court date|calendar|meeting|sentencing|pretrial|arraignment|conference|review|motion|plea)\b/i.test(message) || /\b(refresh|sync)\s*(the\s*)?(calendar|deadlines)\b/i.test(message) || /\b(when\s+is|when\s+are|when\s+does|when\s+do|when\s+must|when\s+should|what\s+(?:is|are)\s+the\s+(?:filing\s+)?deadline|calculate\s+(?:the\s+)?deadline|compute\s+(?:the\s+)?deadline|file\s+by\s+when|days?\s+to\s+(?:respond|answer|file|oppose)|how\s+(?:many|long)\s+(?:days?|time))\b/i.test(message);
-				const isEmailMessage = /\b(email|inbox|mail|send|reply|forward|archive|correspondence)\b/i.test(message);
+				const isEmailMessage = /\b(email|inbox|mail|send|reply|respond|forward|archive|correspondence|gmail)\b/i.test(message);
 				const isAlertMessage = /\b(hearing|alert|change|schedule|reschedul|cancel|continu|notice|judicialink|court\s*date|docket|calendar)\b/i.test(message);
 				const cacheKey = `chat:${hashString(message + (context || ''))}`;
 				const kvCached = (!isActionMessage && !isEmailMessage && !isAlertMessage) ? await env.CACHE.get(cacheKey) : null;
@@ -308,8 +445,8 @@ export default {
 
 					// Upcoming deadlines
 					const deadlines = await env.MEMORY_DB.prepare(
-						`SELECT client_name, case_number, deadline_type, description, due_date, court FROM deadlines WHERE status IN ('active', 'pending') AND due_date >= date('now') ORDER BY due_date ASC LIMIT 15`
-					).all();
+						`SELECT client_name, case_number, deadline_type, description, due_date, court FROM deadlines WHERE status IN ('active', 'pending') AND due_date >= ? ORDER BY due_date ASC LIMIT 15`
+					).bind(mtnToday()).all();
 					if (deadlines.results?.length) {
 						memoryContext += '\n## Upcoming Deadlines\n';
 						for (const d of deadlines.results as any[]) {
@@ -410,9 +547,13 @@ export default {
 
 					// Timecards — recent work summary
 					try {
+						// Compute 7 days ago in Mountain Time
+						const sevenDaysAgo = new Date(mtnNow());
+						sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+						const sevenDaysAgoStr = sevenDaysAgo.toISOString().split('T')[0];
 						const recentTime = await env.MEMORY_DB.prepare(
-							`SELECT date, client_name, hours, description FROM timecards WHERE date >= date('now', '-7 days') ORDER BY date DESC LIMIT 20`
-						).all();
+							`SELECT date, client_name, hours, description FROM timecards WHERE date >= ? ORDER BY date DESC LIMIT 20`
+						).bind(sevenDaysAgoStr).all();
 						if (recentTime.results?.length) {
 							const totalHrs = (recentTime.results as any[]).reduce((sum: number, t: any) => sum + (parseFloat(t.hours) || 0), 0);
 							memoryContext += `\n## ⏱️ Recent Timecards (last 7 days — ${totalHrs.toFixed(1)}h total)\n`;
@@ -424,29 +565,43 @@ export default {
 
 					// Compressed memory summaries (older conversation blocks)
 					const summaries = await env.MEMORY_DB.prepare(
-						`SELECT summary, started_at FROM sessions WHERE id LIKE 'summary_%' ORDER BY started_at DESC LIMIT 10`
+						`SELECT summary, started_at FROM sessions WHERE id LIKE 'summary_%' ORDER BY started_at DESC LIMIT 12`
 					).all();
 					if (summaries.results?.length) {
 						memoryContext += '\n## Conversation History (compressed summaries, oldest first)\n';
 						const sorted = (summaries.results as any[]).reverse();
 						for (const s of sorted) {
-							memoryContext += `[${s.started_at}]: ${(s.summary || '').substring(0, 600)}\n---\n`;
+							memoryContext += `[${s.started_at}]: ${(s.summary || '').substring(0, 1200)}\n---\n`;
 						}
 					}
-
-					// Recent conversation context (rolling window — last 20 messages in full)
-					const recentMsgs = await env.DB.prepare(
-						`SELECT role, content, timestamp FROM chat_messages WHERE session_id = 'synthia_master' AND role IN ('user', 'assistant') ORDER BY timestamp DESC LIMIT 20`
-					).all();
-					if (recentMsgs.results?.length) {
-						memoryContext += '\n## Recent Conversation (last 20 messages)\n';
-						const msgs = (recentMsgs.results as any[]).reverse();
-						for (const m of msgs) {
-							memoryContext += `[${m.role}]: ${(m.content || '').substring(0, 400)}\n`;
-						}
-					}
+					// NOTE: Recent conversation is NOT included here — it goes into Claude's messages array
+					// as proper multi-turn history (conversationTurns), which is far more effective than flat text.
 				} catch (memErr: any) {
 					console.error('Memory context error:', memErr.message);
+				}
+
+				// --- STEP 2-RAG: Semantic memory retrieval ---
+				let ragContext = '';
+				try {
+					const matches = await ragSearch(env.AI, env.MEMORY_INDEX, message, 8);
+					if (matches.length > 0) {
+						const chunks: string[] = [];
+						for (const m of matches) {
+							if ((m.score || 0) < 0.60) continue; // Lowered threshold for better recall
+							const row = await env.DB.prepare('SELECT content, chunk_type, source FROM memory_chunks WHERE id = ?').bind(m.id).first() as any;
+							if (row) {
+								// High-relevance chunks get full content, lower ones get truncated
+								const maxLen = (m.score || 0) >= 0.80 ? 1500 : (m.score || 0) >= 0.70 ? 1000 : 600;
+								chunks.push(`[${row.chunk_type}/${row.source}, relevance: ${(m.score || 0).toFixed(2)}]: ${row.content.substring(0, maxLen)}`);
+							}
+						}
+						if (chunks.length > 0) {
+							ragContext = '\n## Retrieved Memories (RAG — semantically matched to current query)\n' + chunks.join('\n---\n');
+						}
+					}
+					if (ragContext) console.log(`RAG: ${matches.filter(m => (m.score || 0) >= 0.65).length} relevant chunks retrieved`);
+				} catch (ragErr: any) {
+					console.error('RAG search error:', ragErr.message);
 				}
 
 				// --- STEP 2-EMAIL: Fetch recent emails for active client and inject into context ---
@@ -454,30 +609,7 @@ export default {
 				let emailAction: string | null = null;
 				if (activeClient) {
 					try {
-						// getGraphToken is defined further down — hoist it here
-						const cached = await env.CACHE.get('ms_graph_token');
-						let graphToken = cached;
-						if (!graphToken) {
-							const tokenUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/token`;
-							const tRes = await fetch(tokenUrl, {
-								method: 'POST',
-								headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-								body: new URLSearchParams({
-									client_id: env.MICROSOFT_CLIENT_ID,
-									client_secret: env.MICROSOFT_CLIENT_SECRET,
-									refresh_token: env.MICROSOFT_REFRESH_TOKEN,
-									grant_type: 'refresh_token',
-									scope: 'https://graph.microsoft.com/User.Read https://graph.microsoft.com/Files.ReadWrite https://graph.microsoft.com/Files.ReadWrite.All https://graph.microsoft.com/Mail.Read https://graph.microsoft.com/Mail.Send https://graph.microsoft.com/Mail.ReadWrite offline_access',
-								})
-							});
-							const tData = await tRes.json() as any;
-							if (tData.access_token) {
-								graphToken = tData.access_token;
-								await env.CACHE.put('ms_graph_token', tData.access_token, { expirationTtl: 3000 });
-								if (tData.refresh_token) await env.CACHE.put('ms_refresh_token_latest', tData.refresh_token);
-							}
-						}
-
+						const graphToken = await getGraphToken();
 						if (graphToken) {
 							// Search emails by client's last name
 							const nameParts = activeClient.split(/\s+/).filter((p: string) => p.length > 2);
@@ -513,6 +645,79 @@ export default {
 					} catch (emailCtxErr: any) {
 						console.warn('Email context fetch error (non-fatal):', emailCtxErr.message);
 					}
+
+					// Also search Gmail (esqslaw@gmail.com) for client emails
+					try {
+						const gmailToken = await getGmailToken();
+						if (gmailToken) {
+							const nameParts = activeClient.split(/\s+/).filter((p: string) => p.length > 2);
+							const searchTerm = nameParts[nameParts.length - 1] || activeClient;
+							const gmailUrl = `https://www.googleapis.com/gmail/v1/users/me/messages?maxResults=5&q=${encodeURIComponent(searchTerm)}`;
+							const gmailRes = await fetch(gmailUrl, { headers: { 'Authorization': `Bearer ${gmailToken}` } });
+							const gmailData = await gmailRes.json() as any;
+							if (gmailData.messages?.length > 0) {
+								let gmailCtx = `\n## 📧 Gmail (esqslaw@gmail.com) — Recent for ${activeClient.toUpperCase()} (${gmailData.messages.length})\n`;
+								for (let i = 0; i < Math.min(gmailData.messages.length, 5); i++) {
+									const msgRes = await fetch(`https://www.googleapis.com/gmail/v1/users/me/messages/${gmailData.messages[i].id}?format=metadata&metadataHeaders=Subject&metadataHeaders=From&metadataHeaders=Date`, { headers: { 'Authorization': `Bearer ${gmailToken}` } });
+									const msg = await msgRes.json() as any;
+									const headers = msg.payload?.headers || [];
+									const subject = headers.find((h: any) => h.name === 'Subject')?.value || '(no subject)';
+									const from = headers.find((h: any) => h.name === 'From')?.value || 'Unknown';
+									const date = headers.find((h: any) => h.name === 'Date')?.value || '';
+									gmailCtx += `  ${i + 1}. ${date.substring(0, 16)} | FROM: ${from} | SUBJECT: ${subject}\n     [gmail_id: ${gmailData.messages[i].id}]\n`;
+								}
+								memoryContext += gmailCtx;
+							}
+						}
+					} catch (gmailCtxErr: any) {
+						console.warn('Gmail context fetch error (non-fatal):', gmailCtxErr.message);
+					}
+				}
+
+				// --- STEP 2-EMAIL-GMAIL: Fetch recent Gmail when user asks about email (even without activeClient) ---
+				if (isEmailMessage && !activeClient) {
+					try {
+						const gmailToken = await getGmailToken();
+						if (gmailToken) {
+							// Extract search term from message (e.g. "Diane's email" → "Diane", "employment contract" → "employment contract")
+							let gmailQuery = 'newer_than:7d';
+							const nameInMsg = message.match(/(?:from|diane|pitcher|employment|contract|email\s+(?:from|about))\s+(\w+)/i);
+							if (nameInMsg) gmailQuery = nameInMsg[0];
+							else if (/diane/i.test(message)) gmailQuery = 'from:diane';
+							else if (/employment|contract/i.test(message)) gmailQuery = 'subject:(employment OR contract)';
+
+							const gmailUrl = `https://www.googleapis.com/gmail/v1/users/me/messages?maxResults=8&q=${encodeURIComponent(gmailQuery)}`;
+							const gmailRes = await fetch(gmailUrl, { headers: { 'Authorization': `Bearer ${gmailToken}` } });
+							const gmailData = await gmailRes.json() as any;
+							if (gmailData.messages?.length > 0) {
+								let gmailCtx = `\n## 📧 Gmail Inbox (esqslaw@gmail.com) — ${gmailData.messages.length} matching emails\n`;
+								for (let i = 0; i < Math.min(gmailData.messages.length, 8); i++) {
+									const msgRes = await fetch(`https://www.googleapis.com/gmail/v1/users/me/messages/${gmailData.messages[i].id}?format=full`, { headers: { 'Authorization': `Bearer ${gmailToken}` } });
+									const msg = await msgRes.json() as any;
+									const headers = msg.payload?.headers || [];
+									const subject = headers.find((h: any) => h.name === 'Subject')?.value || '(no subject)';
+									const from = headers.find((h: any) => h.name === 'From')?.value || 'Unknown';
+									const date = headers.find((h: any) => h.name === 'Date')?.value || '';
+									// Extract body text (plain text part)
+									let bodyText = '';
+									if (msg.payload?.parts) {
+										const textPart = msg.payload.parts.find((p: any) => p.mimeType === 'text/plain');
+										if (textPart?.body?.data) {
+											bodyText = atob(textPart.body.data.replace(/-/g, '+').replace(/_/g, '/'));
+										}
+									} else if (msg.payload?.body?.data) {
+										bodyText = atob(msg.payload.body.data.replace(/-/g, '+').replace(/_/g, '/'));
+									}
+									gmailCtx += `  ${i + 1}. ${date.substring(0, 24)} | FROM: ${from} | SUBJECT: ${subject}\n`;
+									if (bodyText) gmailCtx += `     Body: ${bodyText.substring(0, 400)}\n`;
+									gmailCtx += `     [gmail_id: ${gmailData.messages[i].id}]\n`;
+								}
+								memoryContext += gmailCtx;
+							}
+						}
+					} catch (gmailReadErr: any) {
+						console.warn('Gmail read error (non-fatal):', gmailReadErr.message);
+					}
 				}
 
 				// --- STEP 2-ALERTS: Fetch JudiciaLink / court alert emails (independent of active client) ---
@@ -520,31 +725,7 @@ export default {
 				// Court notices come from @utcourts.gov — these are critical and should always be in context
 				if (isAlertMessage || isEmailMessage) {
 					try {
-						// Reuse graphToken from above, or get fresh one
-						let alertGraphToken: string | null = null;
-						const cachedToken = await env.CACHE.get('ms_graph_token');
-						if (cachedToken) {
-							alertGraphToken = cachedToken;
-						} else {
-							const tokenUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/token`;
-							const tRes = await fetch(tokenUrl, {
-								method: 'POST',
-								headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-								body: new URLSearchParams({
-									client_id: env.MICROSOFT_CLIENT_ID,
-									client_secret: env.MICROSOFT_CLIENT_SECRET,
-									refresh_token: env.MICROSOFT_REFRESH_TOKEN,
-									grant_type: 'refresh_token',
-									scope: 'https://graph.microsoft.com/User.Read https://graph.microsoft.com/Files.ReadWrite https://graph.microsoft.com/Files.ReadWrite.All https://graph.microsoft.com/Mail.Read https://graph.microsoft.com/Mail.Send https://graph.microsoft.com/Mail.ReadWrite offline_access',
-								})
-							});
-							const tData = await tRes.json() as any;
-							if (tData.access_token) {
-								alertGraphToken = tData.access_token;
-								await env.CACHE.put('ms_graph_token', tData.access_token, { expirationTtl: 3000 });
-							}
-						}
-
+						const alertGraphToken = await getGraphToken();
 						if (alertGraphToken) {
 							// Fetch recent JudiciaLink alerts (all types) — include body for event extraction
 							const jlUrl = `https://graph.microsoft.com/v1.0/me/messages?$top=20&$search="from:judicialink.com"&$select=subject,receivedDateTime,body,id,hasAttachments,from`;
@@ -634,7 +815,7 @@ export default {
 				// --- Email action intent detection ---
 				if (message) {
 					if (/\b(send|email|write|draft|reply|respond|forward)\b.*\b(email|message|reply|response|them|back|her|him|court|client|counsel)\b/i.test(message) ||
-						/\b(email|message|write\s+to)\b/i.test(message) && /\b(them|court|clerk|judge|counsel|opposing|client)\b/i.test(message)) {
+						(/\b(write\s+to)\b/i.test(message) && /\b(them|court|clerk|judge|counsel|opposing|client)\b/i.test(message))) {
 						emailAction = 'compose';
 					}
 					if (/\b(archive|save|file|store|pdf)\b.*\b(email|emails|correspondence|communications)\b/i.test(message) ||
@@ -768,7 +949,7 @@ export default {
 				// Fast path: parse action commands without external API calls
 				// BUT skip if this is clearly an email request — let AI handle those
 				const isEmailRequest = /\b(send|email|write|draft|reply|respond|forward)\b.*\b(email|message|him|her|them|client|counsel|court)\b/i.test(message) || /\b(email|message)\b.*\b(to|about|regarding|cancel|reschedule|inform)\b/i.test(message);
-				if (true && !isEmailRequest) {
+				if (!isEmailRequest) {
 					const actionKeywords = /\b(add|create|schedule|move|reschedule|change|update|edit|delete|remove|cancel|complete|mark done|refresh calendar|sync calendar|compute|calculate|what is the deadline|due date|file by)\b/i;
 					const contextKeywords = /\b(hearing|deadline|event|appointment|court date|calendar|meeting|sentencing|pretrial|arraignment|conference|review|motion|plea|answer|opposition|reply|brief|appeal|disclosure|interrogator|production|admission|summary judgment|new trial|certiorari|docketing)\b/i;
 					const deadlineCalcKeywords = /\b(when\s+is\s+(?:the\s+)?(?:\w+\s+)?(?:answer|opposition|reply|brief|disclosure|response|motion|hearing|deadline)\s+due|when\s+are\s+(?:[\w-]+\s+)?(?:responses?|answers?|disclosures?|briefs?|motions?)\s+due|what\s+(?:is|are)\s+the\s+(?:filing\s+)?deadline|calculate\s+(?:the\s+)?deadline|compute\s+(?:the\s+)?deadline|file\s+by\s+when|when\s+(?:do|does|must|should)\s+(?:[\w-]+\s+){0,4}(?:be\s+)?(?:file[d]?|respond|answer|submit)|days?\s+to\s+(?:respond|answer|file|oppose)|how\s+(?:many|long)\s+(?:days?|time)\s+(?:to|for|until|before|after))\b/i;
@@ -791,14 +972,14 @@ export default {
 							if (dateMatch) {
 								const month = monthNames[dateMatch[1].toLowerCase()];
 								const day = dateMatch[2].padStart(2, '0');
-								const year = dateMatch[3] || new Date().getFullYear().toString();
+								const year = dateMatch[3] || mtnNow().getFullYear().toString();
 								dueDate = `${year}-${month}-${day}`;
 							}
 							const slashDate = message.match(/\b(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?\b/);
 							if (!dueDate && slashDate) {
 								const month = slashDate[1].padStart(2, '0');
 								const day = slashDate[2].padStart(2, '0');
-								let year = slashDate[3] || new Date().getFullYear().toString();
+								let year = slashDate[3] || mtnNow().getFullYear().toString();
 								if (year.length === 2) year = '20' + year;
 								dueDate = `${year}-${month}-${day}`;
 							}
@@ -812,7 +993,8 @@ export default {
 								const ampm = timeMatch[3].toUpperCase();
 								if (ampm === 'PM' && hour < 12) hour += 12;
 								if (ampm === 'AM' && hour === 12) hour = 0;
-								hearingTime = `${hour > 12 ? hour - 12 : hour}:${min} ${ampm}`;
+								const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+								hearingTime = `${displayHour}:${min} ${ampm}`;
 							}
 
 							// Extract client name — multiple patterns
@@ -959,7 +1141,7 @@ export default {
 											actionResult = `❌ No ${ruleSource} deadline rule found for trigger: "${triggerEvent}". This may require manual review of the applicable rules.`;
 										} else {
 											// Use trigger date from message, or today
-											const triggerDateForCalc = dueDate || new Date().toISOString().split('T')[0];
+											const triggerDateForCalc = dueDate || mtnToday();
 											// Determine service type from message
 											let serviceType = 'electronic'; // default modern filing
 											if (/\b(by\s+mail|mailed|postal|snail\s+mail|certified\s+mail)\b/i.test(message)) serviceType = 'mail';
@@ -1006,7 +1188,7 @@ export default {
 									actionResult = '❌ Could not determine a date. Please specify when (e.g. "March 15 at 2pm").';
 								} else {
 									await env.MEMORY_DB.prepare(
-										`INSERT INTO deadlines (client_name, case_number, deadline_type, description, due_date, hearing_time, court, courtroom, judge, hearing_mode, status, source, notes, created_at) VALUES (?, '', ?, ?, ?, ?, '', ?, ?, '', 'pending', 'manual', '', datetime('now'))`
+										`INSERT INTO deadlines (client_name, case_number, deadline_type, description, due_date, hearing_time, court, courtroom, judge, hearing_mode, status, source, notes, created_at) VALUES (?, '', ?, ?, ?, ?, '', ?, ?, '', 'pending', 'manual', '', ?)`
 									).bind(
 										clientName || 'Unknown',
 										deadlineType,
@@ -1014,7 +1196,8 @@ export default {
 										dueDate,
 										hearingTime,
 										courtroom,
-										judge
+										judge,
+										mtnISO()
 									).run();
 									actionResult = `✅ Added ${deadlineType} for ${clientName || 'Unknown'} on ${dueDate}${hearingTime ? ' at ' + hearingTime : ''}${judge ? ' (' + judge + ')' : ''}`;
 									if (dateWarnings.length) actionResult += '\n\n' + dateWarnings.join('\n');
@@ -1031,6 +1214,8 @@ export default {
 
 								if (setClauses.length === 0) {
 									actionResult = '❌ No fields to update. Please specify what to change.';
+								} else if (!clientName) {
+									actionResult = '❌ Could not determine which client\'s deadline to update. Please specify the client name.';
 								} else {
 									const searchName = clientName.toLowerCase().split(' ')[0] || '';
 									const existing = await env.MEMORY_DB.prepare(
@@ -1082,8 +1267,8 @@ export default {
 								} else {
 									const target = existing.results[0] as any;
 									await env.MEMORY_DB.prepare(
-										`UPDATE deadlines SET status = 'completed', completed_at = datetime('now') WHERE id = ?`
-									).bind(target.id).run();
+										`UPDATE deadlines SET status = 'completed', completed_at = ? WHERE id = ?`
+									).bind(mtnISO(), target.id).run();
 									actionResult = `✅ Completed: ${target.client_name} — ${target.deadline_type} on ${target.due_date}`;
 								}
 							}
@@ -1236,15 +1421,32 @@ SCHEDULE CHANGE ALERTS (DASHBOARD ALERTS):
 
 ## Memory Context
 ${memoryContext || 'No memory context loaded.'}
+${ragContext || ''}
 
 ## Chat Context
 ${context || 'None provided.'}
-${activeClient ? `\n## Active Client: ${activeClient}` : ''}
+${inferredClient ? `\n## Active Client: ${inferredClient}${!activeClient && inferredClient ? ' (inferred from conversation)' : ''}` : ''}
+
+═══════════════════════════════════════════════════
+CONVERSATION CONTINUITY — WHAT MAKES YOU BETTER THAN ALEXA
+═══════════════════════════════════════════════════
+You are in a CONTINUOUS conversation. Your message history (the multi-turn messages before the current one) IS the conversation. Use it.
+
+PRONOUN RESOLUTION: "he", "she", "him", "her", "they", "them", "it", "that", "this" — resolve from context. If the last 3 messages discussed Smith's case, and the user says "file a motion for him" → him = Smith. NEVER ask "who do you mean?" if the conversation makes it clear.
+
+TOPIC THREADING: If the user was discussing a case strategy and then says "what about the plea deal?" — they mean the plea deal for the SAME case. Don't reset context. Don't ask which case.
+
+REFERENCE BACK: When you helped draft something 5 messages ago and the user says "change the second paragraph" — you have the conversation history. Find it. Don't say "I don't have access to what I wrote before."
+
+MEMORY ACROSS SESSIONS: Your compressed summaries and RAG memories contain past conversations. If the user says "remember when we discussed the Smith motion?" — search your Retrieved Memories section. It may be there.
+
+FOLLOW-UP AWARENESS: Questions like "what else?", "anything else?", "and?", "go on", "continue" — continue your previous response. Don't start over. Don't ask what they mean.
 
 ═══ REMINDER (re-read before EVERY response) ═══
 You have MASTERED the data above. You know every client, every hearing, every deadline, every player.
 WHICH HAT? Secretary tasks → execute immediately, no questions. Paralegal tasks → be thorough and anticipatory. Attorney tasks → be precise and cite law.
 DO NOT ASK QUESTIONS you can answer from context. ONE match = that's the one. "C"/"Cs" = Client/Client's. Act like the person who already knows the whole caseload.
+CONTINUITY: Resolve pronouns, maintain topic threads, reference your own prior messages. You are mid-conversation, not starting fresh.
 ═══════════════════════════════════════════════════`;
 
 				// --- STEP 4: Query research models in parallel ---
@@ -1357,8 +1559,83 @@ DO NOT ASK QUESTIONS you can answer from context. ONE match = that's the one. "C
 				let totalSources = 0;
 				let validResults: { id: string; name: string; content: string; success: boolean }[] = [];
 
-				// Helper: query Claude directly (with prompt caching for system prompt)
+				// Build multi-turn conversation history from DB for Claude messages array
+				let conversationTurns: { role: string; content: string }[] = [];
+				try {
+					const histRows = await env.DB.prepare(
+						`SELECT role, content FROM chat_messages WHERE session_id = 'synthia_master' AND role IN ('user', 'assistant') ORDER BY timestamp DESC LIMIT 30`
+					).all();
+					if (histRows.results?.length) {
+						// Recent messages get full content, older ones get progressively truncated
+						// This gives Claude a deep window (30 msgs) while managing token budget
+						const allTurns = (histRows.results as any[]).reverse();
+						const rawTurns = allTurns.map((m: any, i: number) => {
+							const age = allTurns.length - i; // 1 = newest, 30 = oldest
+							// Last 8 messages: full content (up to 3000 chars for assistant responses)
+							// Messages 9-20: moderate truncation (1500 chars)
+							// Messages 21-30: heavy truncation (600 chars — just enough for topic continuity)
+							const maxLen = age <= 8 ? 3000 : age <= 20 ? 1500 : 600;
+							return {
+								role: m.role === 'assistant' ? 'assistant' : 'user',
+								content: (m.content || '').substring(0, maxLen)
+							};
+						});
+						// Ensure starts with user (Claude API requirement)
+						while (rawTurns.length > 0 && rawTurns[0].role !== 'user') {
+							rawTurns.shift();
+						}
+						// Deduplicate consecutive same-role messages (merge them)
+						// Claude API crashes on two consecutive user or assistant messages
+						for (const turn of rawTurns) {
+							const last = conversationTurns[conversationTurns.length - 1];
+							if (last && last.role === turn.role) {
+								last.content = (last.content + '\n' + turn.content).substring(0, 3000);
+							} else {
+								conversationTurns.push(turn);
+							}
+						}
+						// Final safety: history must end on assistant (we append current user msg after)
+						while (conversationTurns.length > 0 && conversationTurns[conversationTurns.length - 1].role !== 'assistant') {
+							conversationTurns.pop();
+						}
+					}
+				} catch (_) { /* ignore if table missing */ }
+
+				// --- Conversation-aware client detection ---
+				// If the frontend didn't send activeClient, infer from recent conversation context
+				// This handles: "what about Smith?" → next msg "file a motion for him" (him = Smith)
+				let inferredClient = activeClient;
+				if (!inferredClient && conversationTurns.length >= 2) {
+					try {
+						// Scan last 6 turns for client name mentions
+						const recentText = conversationTurns.slice(-6).map(t => t.content).join(' ');
+						const partyRows = await env.MEMORY_DB.prepare(
+							`SELECT client_name FROM party_cache ORDER BY last_verified DESC LIMIT 30`
+						).all();
+						if (partyRows.results?.length) {
+							// Check each client name — most recently mentioned wins
+							let lastIdx = -1;
+							for (const p of partyRows.results as any[]) {
+								const name = (p.client_name || '') as string;
+								if (!name) continue;
+								// Check full name and last name
+								const idx = recentText.toLowerCase().lastIndexOf(name.toLowerCase());
+								const lastName = name.split(/\s+/).pop() || '';
+								const lastNameIdx = lastName.length > 2 ? recentText.toLowerCase().lastIndexOf(lastName.toLowerCase()) : -1;
+								const bestIdx = Math.max(idx, lastNameIdx);
+								if (bestIdx > lastIdx) {
+									lastIdx = bestIdx;
+									inferredClient = name;
+								}
+							}
+						}
+					} catch (_) {}
+				}
+
+				// Helper: query Claude directly (with prompt caching for system prompt + multi-turn memory)
 				const queryClaudeDirect = async (userContent: string): Promise<string> => {
+					// Build messages: conversation history + current user message
+					const msgs = [...conversationTurns, { role: 'user', content: userContent }];
 					const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
 						method: 'POST',
 						headers: {
@@ -1370,7 +1647,7 @@ DO NOT ASK QUESTIONS you can answer from context. ONE match = that's the one. "C
 						body: JSON.stringify({
 							model: 'claude-sonnet-4-20250514',
 							max_tokens: 4000,
-							temperature: 0,
+							temperature: 0.15,
 							system: [
 								{
 									type: 'text',
@@ -1378,7 +1655,7 @@ DO NOT ASK QUESTIONS you can answer from context. ONE match = that's the one. "C
 									cache_control: { type: 'ephemeral' }
 								}
 							],
-							messages: [{ role: 'user', content: userContent }]
+							messages: msgs
 						})
 					});
 					const claudeData = await claudeRes.json() as any;
@@ -1396,24 +1673,29 @@ DO NOT ASK QUESTIONS you can answer from context. ONE match = that's the one. "C
 					return claudeData.content?.[0]?.text || '';
 				};
 
-				// Helper: query Grok directly (second voice)
+				// Helper: query Grok directly (second voice — also multi-turn)
 				const queryGrokDirect = async (userContent: string): Promise<string> => {
 					if (!env.XAI_API_KEY) return '';
+					const grokMsgs: { role: string; content: string }[] = [
+						{ role: 'system', content: synthiaSystemPrompt },
+						...conversationTurns,
+						{ role: 'user', content: userContent }
+					];
 					const r = await fetch('https://api.x.ai/v1/chat/completions', {
 						method: 'POST',
 						headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${env.XAI_API_KEY}` },
 						body: JSON.stringify({
-							model: 'grok-3', temperature: 0,
-							messages: [
-								{ role: 'system', content: synthiaSystemPrompt },
-								{ role: 'user', content: userContent }
-							],
+							model: 'grok-3', temperature: 0.15,
+							messages: grokMsgs,
 							max_tokens: 4000
 						})
 					});
 					const d = await r.json() as any;
 					return d.choices?.[0]?.message?.content || '';
 				};
+
+				// Role anchor — prepended to every user message to prevent mid-conversation drift
+				const roleAnchor = `[SYNTHIA: You have mastered the desktop data. Identify your hat (Secretary/Paralegal/Attorney) for this task. Execute using context — do NOT ask questions you can answer yourself. "C"/"Cs"=Client's. One match=use it.${inferredClient ? ` Active client context: ${inferredClient}.` : ''}]\n\n`;
 
 				if (needsResearch) {
 					// WIDE END: Fan out to research AIs, Claude synthesizes
@@ -1430,9 +1712,6 @@ DO NOT ASK QUESTIONS you can answer from context. ONE match = that's the one. "C
 
 					const allResults = await Promise.all(researchPromises);
 					validResults = allResults.filter(r => r.success && r.content.length > 10);
-
-					// Role anchor — prepended to every user message to prevent mid-conversation drift
-					const roleAnchor = `[SYNTHIA: You have mastered the desktop data. Identify your hat (Secretary/Paralegal/Attorney) for this task. Execute using context — do NOT ask questions you can answer yourself. "C"/"Cs"=Client's. One match=use it.]\n\n`;
 
 					if (!env.ANTHROPIC_API_KEY) {
 						consensus = validResults[0]?.content || 'No AI services available.';
@@ -1465,7 +1744,6 @@ DO NOT ASK QUESTIONS you can answer from context. ONE match = that's the one. "C
 				} else {
 					// NARROW NECK: Claude handles directly
 					console.log('Funnel narrow → Claude direct');
-					const roleAnchor = `[SYNTHIA: You have mastered the desktop data. Identify your hat (Secretary/Paralegal/Attorney) for this task. Execute using context — do NOT ask questions you can answer yourself. "C"/"Cs"=Client's. One match=use it.]\n\n`;
 					if (env.ANTHROPIC_API_KEY) {
 						try {
 							consensus = await queryClaudeDirect(roleAnchor + message);
@@ -1574,8 +1852,8 @@ DO NOT ASK QUESTIONS you can answer from context. ONE match = that's the one. "C
 						console.error('Email send error:', emailErr.message);
 						emailActionResult = { type: 'compose', status: 'error', error: emailErr.message };
 					}
-				} else if (emailAction === 'archive' && activeClient) {
-					emailActionResult = { type: 'archive', status: 'pending', note: `Archive emails for ${activeClient} — use POST /api/email/archive endpoint to execute.` };
+				} else if (emailAction === 'archive' && inferredClient) {
+					emailActionResult = { type: 'archive', status: 'pending', note: `Archive emails for ${inferredClient} — use POST /api/email/archive endpoint to execute.` };
 				} else if (emailAction === 'read') {
 					emailActionResult = { type: 'read', status: 'complete', note: 'Email context included in AI response.' };
 				}
@@ -1591,12 +1869,12 @@ DO NOT ASK QUESTIONS you can answer from context. ONE match = that's the one. "C
 					totalAIs: researchModels.length + (env.ANTHROPIC_API_KEY ? 1 : 0),
 					researchModels: validResults.map(r => r.name),
 					...(emailActionResult && { emailAction: emailActionResult }),
-					...(activeClient && { activeClient })
+					...(inferredClient && { activeClient: inferredClient })
 				};
 
-				// Cache in KV (24h for general, 1h for case-specific) — skip cache for email actions
+				// Cache in KV (24h for general, 1h for case-specific) — skip for actions, emails, alerts
 				const ttl = message.toLowerCase().match(/case|client|hearing|deadline|motion/) ? 3600 : 86400;
-				if (!emailAction && !isAlertMessage) {
+				if (!emailAction && !isAlertMessage && !isActionMessage) {
 					ctx.waitUntil(env.CACHE.put(cacheKey, JSON.stringify(result), { expirationTtl: ttl }));
 				}
 
@@ -1607,31 +1885,44 @@ DO NOT ASK QUESTIONS you can answer from context. ONE match = that's the one. "C
 						await env.DB.prepare(`INSERT INTO chat_messages (session_id, role, content) VALUES ('synthia_master', 'user', ?)`).bind(message).run();
 						await env.DB.prepare(`INSERT INTO chat_messages (session_id, role, content) VALUES ('synthia_master', 'assistant', ?)`).bind(consensus).run();
 
+						// --- STEP 7a-RAG: Store exchange as memory chunk ---
+						try {
+							const chunkId = `chat_${Date.now()}`;
+							const chunkContent = `User: ${message}\nSynthia: ${consensus.substring(0, 2500)}`;
+							await ragStore(env.AI, env.MEMORY_INDEX, env.DB, {
+								id: chunkId, type: 'conversation', source: 'chat',
+								content: chunkContent, clientName: inferredClient || '',
+							});
+						} catch (ragStoreErr: any) {
+							console.error('RAG store error:', ragStoreErr.message);
+						}
+
 						// --- STEP 7b: Auto-summarize if messages exceed threshold ---
-						// Every 60+ unsummarized messages, compress oldest 50 into a summary
+						// Every 80+ unsummarized messages, compress oldest 50 into a summary
 						const countRes = await env.DB.prepare(
 							`SELECT COUNT(*) as cnt FROM chat_messages WHERE session_id = 'synthia_master' AND role IN ('user', 'assistant')`
 						).first() as any;
-						if ((countRes?.cnt || 0) > 60 && env.ANTHROPIC_API_KEY) {
+						if ((countRes?.cnt || 0) > 80 && env.ANTHROPIC_API_KEY) {
 							const { results: oldest } = await env.DB.prepare(
-								`SELECT id, role, content, timestamp FROM chat_messages WHERE session_id = 'synthia_master' AND role IN ('user', 'assistant') ORDER BY timestamp ASC LIMIT 40`
+								`SELECT id, role, content, timestamp FROM chat_messages WHERE session_id = 'synthia_master' AND role IN ('user', 'assistant') ORDER BY timestamp ASC LIMIT 50`
 							).all();
-							if (oldest?.length >= 40) {
-								const text = (oldest as any[]).map(m => `[${m.role}]: ${(m.content || '').substring(0, 300)}`).join('\n');
+							if (oldest?.length >= 50) {
+								// Preserve turn structure with timestamps for better recall
+								const text = (oldest as any[]).map(m => `[${(m.timestamp as string || '').substring(0, 16)} ${m.role.toUpperCase()}]: ${(m.content || '').substring(0, 500)}`).join('\n\n');
 								const sRes = await fetch('https://api.anthropic.com/v1/messages', {
 									method: 'POST',
 									headers: { 'Content-Type': 'application/json', 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
 									body: JSON.stringify({
-										model: 'claude-sonnet-4-20250514', max_tokens: 800, temperature: 0,
-										messages: [{ role: 'user', content: `Compress this conversation block into a concise internal memory note for the AI and user (max 500 words). This is private — NOT public, NOT for court websites.\n\nInclude:\n1. FACTUAL SUMMARY: What specifically was discussed, built, changed, or decided? Include concrete details (file names, endpoints, code changes, client situations, case facts).\n2. CLIENT CONTEXT: Names, case numbers, case types, key facts about their situation.\n3. TASKS & OUTCOMES: What was completed, what's still pending, what failed and why.\n4. DECISIONS: Any choices made and the reasoning.\n5. TECHNICAL DETAILS: Specific files modified, APIs called, database changes, deployments.\n\nDo NOT include court website URLs or external links. Write as direct internal notes.\n\n${text}` }]
+										model: 'claude-sonnet-4-20250514', max_tokens: 1200, temperature: 0,
+										messages: [{ role: 'user', content: `Compress this conversation block into a detailed internal memory note (max 800 words). This is private — NOT public.\n\nSTRUCTURE YOUR SUMMARY AS:\n\n## Topics Discussed\n- Topic 1: what was discussed, what was decided, key details\n- Topic 2: ...\n\n## Client Matters Referenced\n- Client Name (case #): what was discussed about their case, any decisions, tasks\n\n## Actions Taken\n- What was completed (specific details: files, endpoints, emails sent, documents drafted)\n- What's pending or was deferred\n\n## Key Facts & Decisions\n- Concrete facts, dates, names, numbers that should be remembered\n- Decisions made and reasoning\n\nPreserve ALL client names, case numbers, dates, and specific details. These summaries are the AI's long-term memory — vague summaries are useless.\n\n${text}` }]
 									})
 								});
 								const sData = await sRes.json() as any;
 								const summary = sData.content?.[0]?.text;
 								if (summary) {
 									await env.MEMORY_DB.prepare(
-										`INSERT INTO sessions (id, summary, started_at) VALUES (?, ?, datetime('now'))`
-									).bind(`summary_${Date.now()}`, summary).run();
+										`INSERT INTO sessions (id, summary, started_at) VALUES (?, ?, ?)`
+									).bind(`summary_${Date.now()}`, summary, mtnISO()).run();
 									const oldIds = (oldest as any[]).map(m => m.id);
 									await env.DB.prepare(
 										`DELETE FROM chat_messages WHERE id IN (${oldIds.map(() => '?').join(',')}) AND session_id = 'synthia_master'`
@@ -1688,6 +1979,184 @@ DO NOT ASK QUESTIONS you can answer from context. ONE match = that's the one. "C
 				return json({ success: true, topics: results });
 			}
 
+			// --- RAG Memory Endpoints ---
+
+			// GET /api/rag/status — chunk counts by type
+			if (path === '/api/rag/status' && request.method === 'GET') {
+				const { results } = await env.DB.prepare(
+					`SELECT chunk_type, COUNT(*) as cnt FROM memory_chunks GROUP BY chunk_type`
+				).all();
+				const total = (results as any[]).reduce((s: number, r: any) => s + r.cnt, 0);
+				return json({ success: true, total, by_type: results });
+			}
+
+			// GET /api/gmail/oauth — start OAuth flow
+			if (path === '/api/gmail/oauth' && request.method === 'GET') {
+				const clientId = env.GOOGLE_OAUTH_CLIENT_ID;
+				const redirectUri = 'https://api.esqs-law.com/api/gmail/callback';
+				const authUrl = 'https://accounts.google.com/o/oauth2/v2/auth?' + new URLSearchParams({
+					client_id: clientId,
+					redirect_uri: redirectUri,
+					response_type: 'code',
+					scope: 'https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/gmail.modify',
+					access_type: 'offline',
+					prompt: 'consent',
+					login_hint: 'esqslaw@gmail.com'
+				}).toString();
+				return Response.redirect(authUrl, 302);
+			}
+
+			// GET /api/gmail/callback — OAuth callback, exchange code for refresh token
+			if (path === '/api/gmail/callback' && request.method === 'GET') {
+				const code = url.searchParams.get('code');
+				if (!code) return json({ success: false, error: 'No code in callback' }, 400);
+				const clientId = env.GOOGLE_OAUTH_CLIENT_ID;
+				const clientSecret = env.GOOGLE_OAUTH_CLIENT_SECRET;
+				const redirectUri = 'https://api.esqs-law.com/api/gmail/callback';
+				const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+					body: new URLSearchParams({
+						code,
+						client_id: clientId,
+						client_secret: clientSecret,
+						redirect_uri: redirectUri,
+						grant_type: 'authorization_code'
+					})
+				});
+				const tokenData = await tokenRes.json() as any;
+				if (tokenData.refresh_token) {
+					return json({
+						success: true,
+						message: 'Got refresh token! Run the command below to save it as a Worker secret.',
+						command: `echo ${tokenData.refresh_token} | npx wrangler secret put GOOGLE_REFRESH_TOKEN`,
+						refresh_token: tokenData.refresh_token,
+					});
+				}
+				return json({ success: false, error: 'No refresh_token in response', data: tokenData });
+			}
+
+			// GET /api/gmail/test — verify Gmail OAuth and read capability
+			if (path === '/api/gmail/test' && request.method === 'GET') {
+				try {
+					// Diagnostic: check if env vars are set
+					const hasClientId = !!env.GOOGLE_OAUTH_CLIENT_ID;
+					const hasClientSecret = !!env.GOOGLE_OAUTH_CLIENT_SECRET;
+					const hasRefreshToken = !!env.GOOGLE_REFRESH_TOKEN;
+					const refreshLen = (env.GOOGLE_REFRESH_TOKEN || '').length;
+					if (!hasRefreshToken) {
+						return json({ success: false, error: 'GOOGLE_REFRESH_TOKEN not set', hasClientId, hasClientSecret, hasRefreshToken, refreshLen });
+					}
+					const token = await getGmailToken();
+					const q = url.searchParams.get('q') || 'newer_than:3d';
+					const listRes = await fetch(`https://www.googleapis.com/gmail/v1/users/me/messages?maxResults=3&q=${encodeURIComponent(q)}`, {
+						headers: { 'Authorization': `Bearer ${token}` }
+					});
+					const listData = await listRes.json() as any;
+					if (!listData.messages?.length) return json({ success: true, token: 'valid', query: q, messages: 0 });
+					const previews: any[] = [];
+					for (const m of listData.messages.slice(0, 3)) {
+						const msgRes = await fetch(`https://www.googleapis.com/gmail/v1/users/me/messages/${m.id}?format=metadata&metadataHeaders=Subject&metadataHeaders=From&metadataHeaders=Date`, {
+							headers: { 'Authorization': `Bearer ${token}` }
+						});
+						const msg = await msgRes.json() as any;
+						const headers = msg.payload?.headers || [];
+						previews.push({
+							id: m.id,
+							from: headers.find((h: any) => h.name === 'From')?.value || '?',
+							subject: headers.find((h: any) => h.name === 'Subject')?.value || '?',
+							date: headers.find((h: any) => h.name === 'Date')?.value || '?',
+						});
+					}
+					return json({ success: true, token: 'valid', query: q, messages: listData.messages.length, previews });
+				} catch (e: any) {
+					return json({ success: false, error: e.message }, 500);
+				}
+			}
+
+			// POST /api/rag/seed?source=judges|oc|cases|sessions|chat&offset=0
+			// Paginated seeder — call per source to stay under subrequest limits
+			if (path === '/api/rag/seed' && request.method === 'POST') {
+				const source = url.searchParams.get('source') || 'judges';
+				const offset = parseInt(url.searchParams.get('offset') || '0');
+				const BATCH = 12; // ~3 subrequests each = 36, well under 50
+				let seeded = 0;
+				let total = 0;
+
+				try {
+					if (source === 'judges') {
+						const { results: judges } = await env.MEMORY_DB.prepare('SELECT * FROM judge_intel').all();
+						total = judges?.length || 0;
+						for (const j of ((judges || []) as any[]).slice(offset, offset + BATCH)) {
+							const content = `Judge: ${j.judge_name}, Court: ${j.court}${j.district ? ', ' + j.district : ''}. Tendencies: ${j.tendencies || 'N/A'}. Sentencing: ${j.sentencing_patterns || 'N/A'}. Motions: ${j.motion_preferences || 'N/A'}. Plea deals: ${j.plea_disposition || 'N/A'}. Win rate: ${j.win_rate || 'N/A'}. JA: ${j.ja_name || 'N/A'}. Notes: ${j.notes || ''}`;
+							await ragStore(env.AI, env.MEMORY_INDEX, env.DB, {
+								id: `judge_${j.judge_name?.replace(/\s+/g, '_').toLowerCase() || seeded}`,
+								type: 'case_knowledge', source: 'judge_intel', content,
+							});
+							seeded++;
+						}
+					} else if (source === 'oc') {
+						const { results: counsel } = await env.MEMORY_DB.prepare('SELECT * FROM opposing_counsel_intel').all();
+						total = counsel?.length || 0;
+						for (const oc of ((counsel || []) as any[]).slice(offset, offset + BATCH)) {
+							const content = `Opposing Counsel: ${oc.counsel_name}${oc.firm ? ', ' + oc.firm : ''}. Bar: ${oc.bar_number || 'N/A'}. Practice: ${oc.practice_areas || 'N/A'}. Negotiation style: ${oc.negotiation_style || 'N/A'}. Litigation: ${oc.litigation_tendencies || 'N/A'}. Strengths: ${oc.strengths || 'N/A'}. Weaknesses: ${oc.weaknesses || 'N/A'}. Cases against: ${oc.cases_against || 'N/A'}. Outcomes: ${oc.outcomes || 'N/A'}. Notes: ${oc.notes || ''}`;
+							await ragStore(env.AI, env.MEMORY_INDEX, env.DB, {
+								id: `oc_${oc.counsel_name?.replace(/\s+/g, '_').toLowerCase() || seeded}`,
+								type: 'case_knowledge', source: 'oc_intel', content,
+							});
+							seeded++;
+						}
+					} else if (source === 'cases') {
+						const { results: cases } = await env.MEMORY_DB.prepare(`SELECT * FROM case_summaries WHERE status = 'active'`).all();
+						total = cases?.length || 0;
+						for (const cs of ((cases || []) as any[]).slice(offset, offset + BATCH)) {
+							const content = `Case: ${cs.client_name} (${cs.case_number}), ${cs.case_type} at ${cs.court}. Role: ${cs.client_role} vs ${cs.opposing_party}. Judge: ${cs.judge}. Summary: ${cs.summary || 'N/A'}. Next event: ${cs.next_event || 'None'} on ${cs.next_event_date || 'TBD'}.`;
+							await ragStore(env.AI, env.MEMORY_INDEX, env.DB, {
+								id: `case_${cs.case_number || seeded}`,
+								type: 'case_knowledge', source: 'case_summary', content,
+								clientName: cs.client_name || '', caseNumber: cs.case_number || '',
+							});
+							seeded++;
+						}
+					} else if (source === 'sessions') {
+						const { results: sessions } = await env.MEMORY_DB.prepare(
+							`SELECT id, summary, started_at FROM sessions WHERE summary IS NOT NULL ORDER BY started_at ASC LIMIT ? OFFSET ?`
+						).bind(BATCH, offset).all();
+						total = (await env.MEMORY_DB.prepare(`SELECT COUNT(*) as cnt FROM sessions WHERE summary IS NOT NULL`).first() as any)?.cnt || 0;
+						for (const s of (sessions || []) as any[]) {
+							await ragStore(env.AI, env.MEMORY_INDEX, env.DB, {
+								id: `summary_${s.id}`,
+								type: 'conversation', source: 'session_summary',
+								content: `[${s.started_at}] ${(s.summary as string).substring(0, 2000)}`,
+							});
+							seeded++;
+						}
+					} else if (source === 'chat') {
+						const { results: msgs } = await env.DB.prepare(
+							`SELECT role, content, timestamp FROM chat_messages WHERE session_id = 'synthia_master' AND role IN ('user', 'assistant') ORDER BY timestamp ASC LIMIT ? OFFSET ?`
+						).bind(BATCH * 2, offset).all();
+						total = (await env.DB.prepare(`SELECT COUNT(*) as cnt FROM chat_messages WHERE session_id = 'synthia_master' AND role IN ('user', 'assistant')`).first() as any)?.cnt || 0;
+						const msgList = msgs as any[];
+						for (let i = 0; i < msgList.length - 1; i += 2) {
+							if (msgList[i].role === 'user' && msgList[i + 1]?.role === 'assistant') {
+								const content = `User: ${msgList[i].content.substring(0, 800)}\nSynthia: ${msgList[i + 1].content.substring(0, 1200)}`;
+								await ragStore(env.AI, env.MEMORY_INDEX, env.DB, {
+									id: `chat_hist_${offset + i}`,
+									type: 'conversation', source: 'chat', content,
+								});
+								seeded++;
+							}
+						}
+					}
+				} catch (e: any) {
+					return json({ success: false, source, offset, seeded, error: e.message });
+				}
+
+				const nextOffset = offset + (source === 'chat' ? BATCH * 2 : BATCH);
+				const done = nextOffset >= total;
+				return json({ success: true, source, seeded, total, offset, done, nextOffset: done ? null : nextOffset });
+			}
+
 			// Export full session for local backup (D1 → JSON dump)
 			if (path === '/api/chat/export' && request.method === 'GET') {
 				try {
@@ -1717,7 +2186,7 @@ DO NOT ASK QUESTIONS you can answer from context. ONE match = that's the one. "C
 
 					return json({
 						success: true,
-						exported_at: new Date().toISOString(),
+						exported_at: mtnISO(),
 						since: since || null,
 						messages: messages || [],
 						summaries: summaries || [],
@@ -1741,9 +2210,11 @@ DO NOT ASK QUESTIONS you can answer from context. ONE match = that's the one. "C
 				const includePast = url.searchParams.get('include_past') === 'true';
 				try {
 					let q = `SELECT client_name, case_number, deadline_type, description, due_date, hearing_time, court, courtroom, judge, hearing_mode, case_url, virtual_link, court_address, court_phone, status, source FROM deadlines WHERE status IN ('active', 'pending')`;
-					if (!includePast) q += ` AND due_date >= date('now')`;
+					const params: any[] = [];
+					if (!includePast) { q += ` AND due_date >= ?`; params.push(mtnToday()); }
 					q += ` ORDER BY due_date ASC, hearing_time ASC LIMIT ?`;
-					const { results } = await env.MEMORY_DB.prepare(q).bind(limit).all();
+					params.push(limit);
+					const { results } = await env.MEMORY_DB.prepare(q).bind(...params).all();
 					return json({ success: true, deadlines: results });
 				} catch (e: any) {
 					return json({ success: true, deadlines: [], error: e.message });
@@ -1788,31 +2259,24 @@ DO NOT ASK QUESTIONS you can answer from context. ONE match = that's the one. "C
 						const testResult = binds.length > 0 ? await testStmt.bind(...binds).all() : await testStmt.all();
 						if (testResult.results.length === 0 && parts.length > 0) {
 							// Levenshtein fallback
-							const lev = (a: string, b: string): number => {
-								const m=a.length,n=b.length; if(!m)return n; if(!n)return m;
-								const d:number[][]=Array.from({length:m+1},()=>Array(n+1).fill(0));
-								for(let i=0;i<=m;i++)d[i][0]=i; for(let j=0;j<=n;j++)d[0][j]=j;
-								for(let i=1;i<=m;i++)for(let j=1;j<=n;j++)d[i][j]=Math.min(d[i-1][j]+1,d[i][j-1]+1,d[i-1][j-1]+(a[i-1]===b[j-1]?0:1));
-								return d[m][n];
-							};
 							const { results: allCsNames } = await env.MEMORY_DB.prepare(`SELECT DISTINCT client_name FROM case_summaries WHERE status='active'`).all();
 							const matched = (allCsNames as any[]).filter(r => {
 								const cp = (r.client_name as string).toLowerCase().replace(/[^a-z\s]/g,'').split(/\s+/).filter((x:string)=>x.length>=2);
 								let hits=0;
-								for(const sp of parts){const sl=sp.toLowerCase();for(const c of cp){const th=Math.min(sl.length,c.length)<=4?1:2;if(c.includes(sl)||sl.includes(c)||lev(sl,c)<=th){hits++;break;}}}
+								for(const sp of parts){const sl=sp.toLowerCase();for(const c of cp){const th=Math.min(sl.length,c.length)<=4?1:2;if(c.includes(sl)||sl.includes(c)||levenshtein(sl,c)<=th){hits++;break;}}}
 								return hits>=parts.length;
 							});
 							if (matched.length > 0) {
 								const names = matched.map(r=>`'${(r.client_name as string).replace(/'/g,"''")}'`).join(',');
 								q = `SELECT client_name, case_number, case_type, court, client_role, opposing_party, judge, summary, next_event, next_event_date, status, file_count, updated_at FROM case_summaries WHERE status = 'active' AND client_name IN (${names})`;
-								if (withEvents) q += ` AND next_event_date IS NOT NULL AND next_event_date >= date('now')`;
+								if (withEvents) q += ` AND next_event_date IS NOT NULL AND next_event_date >= '${mtnToday()}'`;
 								q += ` ORDER BY next_event_date ASC NULLS LAST, client_name ASC`;
 								binds.length = 0; // clear binds since names are inlined
 							}
 						}
 					}
 					if (withEvents) {
-						q += ` AND next_event_date IS NOT NULL AND next_event_date >= date('now')`;
+						q += ` AND next_event_date IS NOT NULL AND next_event_date >= '${mtnToday()}'`;
 					}
 					q += ` ORDER BY next_event_date ASC NULLS LAST, client_name ASC`;
 					const stmt = env.MEMORY_DB.prepare(q);
@@ -1843,7 +2307,7 @@ DO NOT ASK QUESTIONS you can answer from context. ONE match = that's the one. "C
 			// Called after scrape, file sync, or manually from dashboard
 			if (path === '/api/case-summaries/refresh' && request.method === 'POST') {
 				try {
-					const today = new Date().toISOString().substring(0, 10);
+					const today = mtnToday();
 
 					// 1. Load all party_cache entries
 					const { results: parties } = await env.MEMORY_DB.prepare(
@@ -1852,8 +2316,8 @@ DO NOT ASK QUESTIONS you can answer from context. ONE match = that's the one. "C
 
 					// 2. Load upcoming deadlines
 					const { results: deadlines } = await env.MEMORY_DB.prepare(
-						`SELECT client_name, case_number, deadline_type, description, due_date, hearing_time, court, courtroom, judge, hearing_mode, status FROM deadlines WHERE status IN ('active','pending') AND due_date >= date('now') ORDER BY due_date ASC, hearing_time ASC`
-					).all();
+						`SELECT client_name, case_number, deadline_type, description, due_date, hearing_time, court, courtroom, judge, hearing_mode, status FROM deadlines WHERE status IN ('active','pending') AND due_date >= ? ORDER BY due_date ASC, hearing_time ASC`
+					).bind(mtnToday()).all();
 
 					// 3. Load file counts per client
 					const { results: fileCounts } = await env.MEMORY_DB.prepare(
@@ -1990,9 +2454,9 @@ DO NOT ASK QUESTIONS you can answer from context. ONE match = that's the one. "C
 				try {
 					const body = await request.json() as any;
 					const { caseNumber, clientName, caseName, court, judge, caseType, filingDate, status, hearings, docketEntries, rawText } = body;
-					if (!caseNumber) return errJson('caseNumber required', 400);
+					if (!caseNumber) return err('caseNumber required', 400);
 
-					const today = new Date().toISOString().substring(0, 10);
+					const today = mtnToday();
 					const hearingsJson = JSON.stringify(hearings || []);
 					const docketJson = JSON.stringify(docketEntries || []);
 					const nextHearing = (hearings || []).length > 0 ? hearings[0].date : null;
@@ -2035,9 +2499,9 @@ DO NOT ASK QUESTIONS you can answer from context. ONE match = that's the one. "C
 				try {
 					const body = await request.json() as any;
 					const { dockets } = body;
-					if (!dockets || !Array.isArray(dockets)) return errJson('dockets array required', 400);
+					if (!dockets || !Array.isArray(dockets)) return err('dockets array required', 400);
 
-					const today = new Date().toISOString().substring(0, 10);
+					const today = mtnToday();
 					let upserted = 0;
 					const batch: any[] = [];
 
@@ -2083,13 +2547,13 @@ DO NOT ASK QUESTIONS you can answer from context. ONE match = that's the one. "C
 				try {
 					const body = await request.json() as any;
 					const { items } = body; // Array of { method, url, body, meta, timestamp }
-					if (!items || !Array.isArray(items)) return errJson('items array required', 400);
+					if (!items || !Array.isArray(items)) return err('items array required', 400);
 
 					const results: any[] = [];
 					for (const item of items) {
 						try {
 							// Build a sub-request to the appropriate endpoint
-							const subUrl = new URL(item.url.replace(API_BASE || '', ''), 'https://api.esqs-law.com');
+							const subUrl = new URL(item.url.replace('https://api.esqs-law.com', ''), 'https://api.esqs-law.com');
 							const subPath = subUrl.pathname;
 
 							// For chat messages — always append (no conflict)
@@ -2159,96 +2623,6 @@ DO NOT ASK QUESTIONS you can answer from context. ONE match = that's the one. "C
 				const category = url.searchParams.get('category');
 				const filtered = category ? templates.filter(t => t.category.toLowerCase() === category.toLowerCase()) : templates;
 				return json({ success: true, templates: filtered, categories: [...new Set(templates.map(t => t.category))] });
-			}
-
-			// Auto-summary: summarize older messages into compressed memory
-			if (path === '/api/chat/summarize' && request.method === 'POST') {
-				try {
-					// Count total messages
-					const countResult = await env.DB.prepare(
-						`SELECT COUNT(*) as cnt FROM chat_messages WHERE session_id = 'synthia_master' AND role IN ('user', 'assistant')`
-					).first() as any;
-					const totalMessages = countResult?.cnt || 0;
-
-					if (totalMessages < 50) {
-						return json({ success: true, message: 'Not enough messages to summarize yet', total: totalMessages });
-					}
-
-					// Get oldest 50 messages that haven't been summarized
-					const { results: oldMessages } = await env.DB.prepare(
-						`SELECT id, role, content, timestamp FROM chat_messages WHERE session_id = 'synthia_master' AND role IN ('user', 'assistant') ORDER BY timestamp ASC LIMIT 50`
-					).all();
-
-					if (!oldMessages?.length || !env.ANTHROPIC_API_KEY) {
-						return json({ success: false, error: 'No messages to summarize or no API key' });
-					}
-
-					// Ask Claude to summarize
-					const messagesText = (oldMessages as any[]).map(m => `[${m.role}]: ${m.content}`).join('\n');
-					const summaryRes = await fetch('https://api.anthropic.com/v1/messages', {
-						method: 'POST',
-						headers: {
-							'Content-Type': 'application/json',
-							'x-api-key': env.ANTHROPIC_API_KEY,
-							'anthropic-version': '2023-06-01'
-						},
-						body: JSON.stringify({
-							model: 'claude-sonnet-4-20250514',
-							max_tokens: 1000,
-							temperature: 0,
-							messages: [{
-								role: 'user',
-								content: `Summarize this conversation block into a concise internal memory note for the AI and user (max 500 words). This is private — NOT public, NOT for court websites.\n\nInclude:\n1. FACTUAL SUMMARY: What specifically was discussed, built, changed, or decided? Include concrete details (file names, endpoints, code changes, client situations, case facts).\n2. CLIENT CONTEXT: Names, case numbers, case types, key facts about their situation.\n3. TASKS & OUTCOMES: What was completed, what's still pending, what failed and why.\n4. DECISIONS: Any choices made and the reasoning.\n5. TECHNICAL DETAILS: Specific files modified, APIs called, database changes, deployments.\n\nDo NOT include court website URLs or external links. Write as direct internal notes.\n\n${messagesText}`
-							}]
-						})
-					});
-
-					const summaryData = await summaryRes.json() as any;
-					const summary = summaryData.content?.[0]?.text || 'Summary generation failed';
-
-					// Store summary in MEMORY_DB
-					await env.MEMORY_DB.prepare(
-						`INSERT INTO sessions (id, summary, started_at) VALUES (?, ?, datetime('now'))`
-					).bind(`summary_${Date.now()}`, summary).run();
-
-					// Delete the old messages that were summarized (keep the thread clean)
-					const oldIds = (oldMessages as any[]).map(m => m.id);
-					if (oldIds.length > 0) {
-						await env.DB.prepare(
-							`DELETE FROM chat_messages WHERE id IN (${oldIds.map(() => '?').join(',')}) AND session_id = 'synthia_master'`
-						).bind(...oldIds).run();
-					}
-
-					// Insert summary as a system message in the thread
-					await env.DB.prepare(
-						`INSERT INTO chat_messages (session_id, role, content) VALUES ('synthia_master', 'summary', ?)`
-					).bind(`📋 Auto-Summary: ${summary}`).run();
-
-					return json({ success: true, summarized: oldMessages.length, summary: summary.substring(0, 200) + '...' });
-				} catch (e: any) {
-					return json({ success: false, error: e.message });
-				}
-			}
-
-			// Legacy session endpoints (backward compatible)
-			const chatMatch = path.match(/^\/api\/chat\/session\/([^/]+)$/);
-			if (chatMatch) {
-				const sessionId = chatMatch[1];
-				if (request.method === 'GET') {
-					const { results } = await env.DB.prepare('SELECT content, role, timestamp FROM chat_messages WHERE session_id = ? ORDER BY timestamp ASC').bind(sessionId).all();
-					return json({ success: true, messages: results });
-				}
-				if (request.method === 'POST') {
-					const { role, content } = await request.json() as any;
-					if (!content) return err('Missing content', 400);
-					await env.DB.prepare('INSERT INTO chat_messages (session_id, role, content) VALUES (?, ?, ?)').bind(sessionId, role || 'user', content).run();
-					return json({ success: true });
-				}
-			}
-
-			if (path === '/api/chat/all' && request.method === 'GET') {
-				const { results } = await env.DB.prepare('SELECT session_id, role, content, timestamp FROM chat_messages ORDER BY timestamp DESC LIMIT 500').all();
-				return json({ success: true, messages: results });
 			}
 
 			// ═══════════════════════════════════════════════════════════════
@@ -2350,19 +2724,7 @@ DO NOT ASK QUESTIONS you can answer from context. ONE match = that's the one. "C
 					return { clause: conditions.join(' AND '), binds: nameParts.map(p => `%${p.toLowerCase()}%`) };
 				};
 
-				// Levenshtein distance for misspelling tolerance
-				const levenshtein = (a: string, b: string): number => {
-					const m = a.length, n = b.length;
-					if (m === 0) return n; if (n === 0) return m;
-					const dp: number[][] = Array.from({length: m+1}, () => Array(n+1).fill(0));
-					for (let i = 0; i <= m; i++) dp[i][0] = i;
-					for (let j = 0; j <= n; j++) dp[0][j] = j;
-					for (let i = 1; i <= m; i++)
-						for (let j = 1; j <= n; j++)
-							dp[i][j] = Math.min(dp[i-1][j]+1, dp[i][j-1]+1, dp[i-1][j-1] + (a[i-1]===b[j-1]?0:1));
-					return dp[m][n];
-				};
-				// Check if any name part is "close enough" to any word in a candidate name
+				// Check if any name part is "close enough" to any word in a candidate name (uses top-level levenshtein)
 				const namePartsMatch = (candidateName: string): boolean => {
 					const candidateParts = candidateName.toLowerCase().replace(/[^a-z\s]/g, '').split(/\s+/).filter(p => p.length >= 2);
 					let matchedParts = 0;
@@ -2489,8 +2851,8 @@ DO NOT ASK QUESTIONS you can answer from context. ONE match = that's the one. "C
 									file_size: f.size,
 									last_modified: f.lastModifiedDateTime,
 									file_type: f.name.split('.').pop()?.toLowerCase() || '',
-									download_url: f['@microsoft.graph.downloadUrl'] || null,
-									web_url: f.webUrl || null,
+									download_url: `https://api.esqs-law.com/api/onedrive/file?id=${f.id}`,
+									web_url: `https://api.esqs-law.com/api/onedrive/file?id=${f.id}`,
 									source: 'onedrive'
 								}));
 							}
@@ -2576,8 +2938,8 @@ DO NOT ASK QUESTIONS you can answer from context. ONE match = that's the one. "C
 				const r2Key = `documents/${caseId || 'general'}/${Date.now()}-${file.name}`;
 				await env.DOCUMENTS.put(r2Key, file.stream(), { customMetadata: { originalName: file.name } });
 				const r = await env.DB.prepare(
-					`INSERT INTO documents (case_id, doc_name, doc_type, r2_key, file_size, created_date) VALUES (?, ?, ?, ?, ?, datetime('now'))`
-				).bind(caseId, file.name, docType, r2Key, file.size).run();
+					`INSERT INTO documents (case_id, doc_name, doc_type, r2_key, file_size, created_date) VALUES (?, ?, ?, ?, ?, ?)`
+				).bind(caseId, file.name, docType, r2Key, file.size, mtnISO()).run();
 				return json({ success: true, id: r.meta.last_row_id, r2_key: r2Key });
 			}
 			
@@ -2590,6 +2952,115 @@ DO NOT ASK QUESTIONS you can answer from context. ONE match = that's the one. "C
 				return new Response(obj.body, {
 					headers: { 'Content-Disposition': `attachment; filename="${doc.doc_name}"`, ...corsHeaders }
 				});
+			}
+
+			// GET /api/onedrive/file?id=xxx or ?path=xxx — proxy file view (inline preview + download option)
+			if (path === '/api/onedrive/file' && request.method === 'GET') {
+				const filePath = url.searchParams.get('path');
+				const itemId = url.searchParams.get('id');
+				const forceDownload = url.searchParams.get('download') === '1';
+				if (!filePath && !itemId) return err('path or id required', 400);
+				try {
+					const token = await getGraphToken();
+					let item: any = null;
+
+					if (itemId) {
+						const res = await fetch(`https://graph.microsoft.com/v1.0/me/drive/items/${itemId}`, {
+							headers: { 'Authorization': `Bearer ${token}` }
+						});
+						item = await res.json() as any;
+					} else if (filePath) {
+						const encodedPath = encodeURIComponent(filePath).replace(/%2F/g, '/');
+						const res = await fetch(`https://graph.microsoft.com/v1.0/me/drive/items/${env.ONEDRIVE_FOLDER_ID}:/${encodedPath}`, {
+							headers: { 'Authorization': `Bearer ${token}` }
+						});
+						item = await res.json() as any;
+					}
+
+					const downloadUrl = item?.['@microsoft.graph.downloadUrl'];
+					if (!downloadUrl) return err('File not found', 404);
+
+					const fileName = item.name || 'document';
+					const ext = fileName.split('.').pop()?.toLowerCase() || '';
+
+					// If ?download=1, redirect to direct download
+					if (forceDownload) {
+						return Response.redirect(downloadUrl, 302);
+					}
+
+					// For PDFs, stream inline so browser previews them
+					if (ext === 'pdf') {
+						const fileRes = await fetch(downloadUrl);
+						return new Response(fileRes.body, {
+							headers: {
+								'Content-Type': 'application/pdf',
+								'Content-Disposition': `inline; filename="${fileName}"`,
+								...corsHeaders
+							}
+						});
+					}
+
+					// For everything else (docx, xlsx, etc), show a preview page with download button
+					const esc = (s: string) => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+					const safeName = esc(fileName);
+					const sizeKB = ((item.size || 0) / 1024).toFixed(1);
+					const modified = (item.lastModifiedDateTime || '').substring(0, 10);
+					const downloadLink = `https://api.esqs-law.com/api/onedrive/file?${itemId ? 'id=' + encodeURIComponent(itemId) : 'path=' + encodeURIComponent(filePath || '')}&download=1`;
+					// Use Office Online preview if available
+					const previewUrl = itemId ? `https://graph.microsoft.com/v1.0/me/drive/items/${encodeURIComponent(itemId)}/preview` : null;
+					let embedUrl = '';
+					if (previewUrl) {
+						try {
+							const prevRes = await fetch(previewUrl, {
+								method: 'POST',
+								headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+								body: '{}'
+							});
+							const prevData = await prevRes.json() as any;
+							embedUrl = prevData.getUrl || '';
+						} catch (_) {}
+					}
+
+					const html = `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${safeName} — ESQs Law</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#1a1a2e;color:#e0e0e0;height:100vh;display:flex;flex-direction:column}
+.toolbar{background:#16213e;padding:12px 20px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #0f3460}
+.toolbar h3{font-size:15px;color:#e94560}
+.file-info{font-size:12px;color:#888;margin-left:12px}
+.btn{background:#e94560;color:#fff;border:none;padding:8px 20px;border-radius:6px;cursor:pointer;font-size:14px;text-decoration:none;display:inline-flex;align-items:center;gap:6px}
+.btn:hover{background:#c73650}
+.preview{flex:1;display:flex;align-items:center;justify-content:center}
+.preview iframe{width:100%;height:100%;border:none}
+.no-preview{text-align:center;padding:40px}
+.no-preview .icon{font-size:64px;margin-bottom:16px}
+.no-preview p{color:#888;margin:8px 0}
+</style></head><body>
+<div class="toolbar">
+<div style="display:flex;align-items:center">
+<h3>📄 ${safeName}</h3>
+<span class="file-info">${sizeKB} KB · Modified ${modified}</span>
+</div>
+<a href="${downloadLink}" class="btn">⬇ Download</a>
+</div>
+<div class="preview">
+${embedUrl ? `<iframe src="${embedUrl}"></iframe>` : `
+<div class="no-preview">
+<div class="icon">📄</div>
+<h2>${safeName}</h2>
+<p>${esc(ext.toUpperCase())} file · ${sizeKB} KB</p>
+<p style="margin-top:20px"><a href="${downloadLink}" class="btn" style="font-size:16px;padding:12px 32px">⬇ Download File</a></p>
+</div>`}
+</div>
+</body></html>`;
+					return new Response(html, {
+						headers: { 'Content-Type': 'text/html; charset=utf-8', ...corsHeaders }
+					});
+				} catch (e: any) {
+					return json({ success: false, error: e.message }, 500);
+				}
 			}
 
 			// ═══════════════════════════════════════════════════════════════
@@ -2658,7 +3129,7 @@ DO NOT ASK QUESTIONS you can answer from context. ONE match = that's the one. "C
 						'MIME-Version: 1.0',
 						'Content-Type: text/html; charset=utf-8',
 						'',
-						body.replace(/\n/g, '<br>')
+						body.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g, '<br>')
 					].filter(line => line);
 
 					const raw = btoa(unescape(encodeURIComponent(messageParts.join('\r\n'))))
@@ -2847,7 +3318,7 @@ DO NOT ASK QUESTIONS you can answer from context. ONE match = that's the one. "C
 			// ONEDRIVE / FILES (Microsoft Graph API)
 			// ═══════════════════════════════════════════════════════════════
 
-			// Note: getGraphToken is defined above in the Email section
+			// Note: getGraphToken() is defined in the Email section below
 
 			// List files for a client from OneDrive
 			const filesListMatch = path.match(/^\/api\/files\/list\/(.+)$/);
@@ -2896,144 +3367,6 @@ DO NOT ASK QUESTIONS you can answer from context. ONE match = that's the one. "C
 				}
 			}
 			
-			// Sync all client folders from OneDrive to D1 cache
-			if (path === '/api/onedrive/sync' && request.method === 'POST') {
-				try {
-					const token = await getGraphToken();
-					// Get all folders in Open Cases using user's OneDrive
-					const foldersUrl = `https://graph.microsoft.com/v1.0/me/drive/items/${env.ONEDRIVE_FOLDER_ID}/children`;
-					const res = await fetch(foldersUrl, {
-						headers: { 'Authorization': `Bearer ${token}` }
-					});
-					const data = await res.json() as any;
-					
-					let synced = 0;
-					for (const folder of (data.value || [])) {
-						if (folder.folder) {
-							// Cache folder info in KV
-							await env.CACHE.put(
-								`onedrive:folder:${folder.name}`,
-								JSON.stringify({ id: folder.id, name: folder.name, childCount: folder.folder.childCount }),
-								{ expirationTtl: 3600 }
-							);
-							synced++;
-						}
-					}
-					
-					return json({ success: true, synced, message: `Synced ${synced} client folders` });
-				} catch (error: any) {
-					return json({ success: false, error: error.message });
-				}
-			}
-			
-			// ═══════════════════════════════════════════════════════════════
-			// LOCAL FILE SYNC (bypasses OAuth - reads from local OneDrive sync)
-			// ═══════════════════════════════════════════════════════════════
-			
-			// Ingest files from local sync script
-			if (path === '/api/files/ingest' && request.method === 'POST') {
-				const { files, client } = await request.json() as any;
-				if (!files || !Array.isArray(files)) return err('files array required', 400);
-				
-				// Store in KV cache by client
-				const key = client ? `files:client:${client}` : 'files:all';
-				await env.CACHE.put(key, JSON.stringify({
-					files,
-					lastSync: new Date().toISOString(),
-					count: files.length
-				}), { expirationTtl: 86400 }); // 24 hour cache
-				
-				return json({ success: true, ingested: files.length, client });
-			}
-			
-			// Bulk ingest all client folders
-			if (path === '/api/files/ingest-all' && request.method === 'POST') {
-				const { clients } = await request.json() as any;
-				if (!clients || !Array.isArray(clients)) return err('clients array required', 400);
-				
-				let totalFiles = 0;
-				for (const c of clients) {
-					if (c.name && c.files) {
-						await env.CACHE.put(`files:client:${c.name}`, JSON.stringify({
-							files: c.files,
-							lastSync: new Date().toISOString(),
-							count: c.files.length
-						}), { expirationTtl: 86400 });
-						totalFiles += c.files.length;
-					}
-				}
-				
-				// Store client list
-				await env.CACHE.put('files:clients', JSON.stringify({
-					clients: clients.map((c: any) => ({ name: c.name, fileCount: c.files?.length || 0 })),
-					lastSync: new Date().toISOString()
-				}), { expirationTtl: 86400 });
-				
-				return json({ success: true, clients: clients.length, totalFiles });
-			}
-			
-			// Get files for a client (from cache)
-			if (path === '/api/files/client' && request.method === 'GET') {
-				const clientName = url.searchParams.get('name');
-				if (!clientName) return err('name parameter required', 400);
-				
-				const cached = await env.CACHE.get(`files:client:${clientName}`);
-				if (cached) {
-					return json({ success: true, ...JSON.parse(cached) });
-				}
-				
-				// Try partial match
-				const clientList = await env.CACHE.get('files:clients');
-				if (clientList) {
-					const { clients } = JSON.parse(clientList);
-					const match = clients.find((c: any) => 
-						c.name.toLowerCase().includes(clientName.toLowerCase()) ||
-						clientName.toLowerCase().includes(c.name.toLowerCase())
-					);
-					if (match) {
-						const matchedCache = await env.CACHE.get(`files:client:${match.name}`);
-						if (matchedCache) {
-							return json({ success: true, ...JSON.parse(matchedCache), matchedFrom: clientName });
-						}
-					}
-				}
-				
-				return json({ success: true, files: [], message: 'No files cached for this client. Run sync script.' });
-			}
-			
-			// List all cached clients
-			if (path === '/api/files/clients' && request.method === 'GET') {
-				const cached = await env.CACHE.get('files:clients');
-				if (cached) {
-					return json({ success: true, ...JSON.parse(cached) });
-				}
-				return json({ success: true, clients: [], message: 'No clients cached. Run sync script.' });
-			}
-
-			// OneDrive webhook for real-time updates
-			if (path === '/api/onedrive/webhook') {
-				// Validation request from Microsoft
-				const validationToken = url.searchParams.get('validationToken');
-				if (validationToken) {
-					return new Response(validationToken, {
-						status: 200,
-						headers: { 'Content-Type': 'text/plain' }
-					});
-				}
-				
-				// Actual change notification
-				if (request.method === 'POST') {
-					const body = await request.json() as any;
-					console.log('OneDrive webhook notification:', JSON.stringify(body));
-					// Queue a sync (using waitUntil to not block response)
-					ctx.waitUntil((async () => {
-						// Invalidate cache so next request fetches fresh data
-						await env.CACHE.delete('ms_graph_token');
-					})());
-					return new Response(null, { status: 202 });
-				}
-			}
-
 			// ═══════════════════════════════════════════════════════════════
 			// 404
 			// ═══════════════════════════════════════════════════════════════
