@@ -930,7 +930,7 @@ export default {
 					if (caseSummaries.results?.length) {
 						memoryContext += `\n## 📋 Case Summaries (${caseSummaries.results.length} active)\n`;
 						for (const cs of caseSummaries.results as any[]) {
-							memoryContext += `- **${cs.client_name}** (${cs.case_number}) — ${cs.case_type}, ${cs.court}\n`;
+							memoryContext += `- **${cs.client_name}** (${cs.case_number}) — ${cs.case_type}, ${cs.court}${cs.assigned_attorney ? ' [' + cs.assigned_attorney + ']' : ''}\n`;
 							memoryContext += `  Role: ${cs.client_role} vs ${cs.opposing_party} | Judge: ${cs.judge}\n`;
 							if (cs.opposing_counsel) memoryContext += `  OC: ${cs.opposing_counsel}`;
 							if (cs.opposing_counsel_firm) memoryContext += ` (${cs.opposing_counsel_firm})`;
@@ -1895,7 +1895,8 @@ INTEL LOGGING:
   Capture WHY they ruled that way — the specific arguments, evidence, or circumstances. Structure as pro/con: what leads to grants, what leads to denials.
   When logging, also note applicability: "This might apply to our case because..."
 - For case summary updates: "update facts on [case]", "add charges to [case]", "the discovery deadline is [date]", "OC's email is [email]"
-  Use PATCH /api/case-summaries/:caseNumber with the relevant fields. Updatable: facts, charges, notes, client_email, client_phone, client_address, opposing_counsel, opposing_counsel_phone, opposing_counsel_email, opposing_counsel_firm, additional_parties, discovery_deadline, dispositive_deadline, trial_date, statute_of_limitations, case_type, court, district, judge, client_role, folder_url, status.
+  Use PATCH /api/case-summaries/:caseNumber with the relevant fields. Updatable: facts, charges, notes, client_email, client_phone, client_address, opposing_counsel, opposing_counsel_phone, opposing_counsel_email, opposing_counsel_firm, additional_parties, discovery_deadline, dispositive_deadline, trial_date, statute_of_limitations, case_type, court, district, judge, client_role, folder_url, status, assigned_attorney.
+  assigned_attorney identifies whose client this is: 'JWA3' for ESQs/John Adams clients, 'DPL' for Diane Pitcher clients, or other attorney codes. Always set this when you know whose client it is.
   PROACTIVELY suggest updating case summaries when you learn new info — "I see you mentioned the trial is set for March 15. Should I update the case summary with this trial date?"
 
 EMAIL CAPABILITIES:
@@ -2830,7 +2831,7 @@ CONTINUITY: Resolve pronouns, maintain topic threads, reference your own prior m
 						'opposing_counsel', 'opposing_counsel_phone', 'opposing_counsel_email', 'opposing_counsel_firm',
 						'opposing_party', 'opposing_role', 'additional_parties',
 						'discovery_deadline', 'dispositive_deadline', 'trial_date', 'statute_of_limitations',
-						'case_type', 'court', 'district', 'judge', 'client_role', 'folder_url', 'status'
+						'case_type', 'court', 'district', 'judge', 'client_role', 'folder_url', 'status', 'assigned_attorney'
 					];
 					const sets: string[] = [];
 					const binds: any[] = [];
