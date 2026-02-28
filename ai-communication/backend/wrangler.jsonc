@@ -57,8 +57,8 @@
 	"vars": {
 		"ENVIRONMENT": "production"
 	},
-	// Cron triggers: deep-scan runs every 6 hours (4x/day), cycles through all active cases
+	// Cron triggers: every 2h (calendar check + email pipeline + reminders) + 7AM MT briefing + EOD timesheet 23:59 MT
 	"triggers": {
-		"crons": ["0 */6 * * *"]
+		"crons": ["0 */2 * * *", "0 14 * * *", "59 6 * * *"]
 	}
 }
